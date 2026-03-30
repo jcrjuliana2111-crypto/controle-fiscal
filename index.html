@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Notificações Fiscais</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3450;
+    --accent: #4f7cff;
+    --accent2: #00d4aa;
+    --warn: #ffb84f;
+    --danger: #ff5f5f;
+    --success: #4fcf8a;
+    --text: #e8ecf4;
+    --text2: #8892aa;
+    --text3: #4d566e;
+    --federal: #4f7cff;
+    --municipal: #a78bfa;
+    --estadual: #00d4aa;
+    --ecac: #ffb84f;
+    --font: 'IBM Plex Sans', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--text);
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .header-right {
+    margin-left: auto;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  /* LAYOUT */
+  main { padding: 28px 32px; max-width: 1600px; margin: 0 auto; }
+
+  /* STATS */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    transition: border-color .2s;
+  }
+  .stat:hover { border-color: var(--accent); }
+  .stat-label {
+    font-size: 11px;
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--text2);
+    margin-bottom: 8px;
+  }
+  .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    font-family: var(--mono);
+  }
+  .stat-value.total { color: var(--text); }
+  .stat-value.vencendo { color: var(--warn); }
+  .stat-value.vencidas { color: var(--danger); }
+  .stat-value.ok { color: var(--success); }
+  .stat-value.pendente { color: var(--accent); }
+
+  /* TOOLBAR */
+  .toolbar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .toolbar input[type=text] {
+    flex: 1; min-width: 200px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 14px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: var(--font);
+    outline: none;
+    transition: border-color .2s;
+  }
+  .toolbar input[type=text]:focus { border-color: var(--accent); }
+  .toolbar select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 14px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--font);
+    outline: none;
+    cursor: pointer;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all .2s;
+    font-family: var(--font);
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: #3a6aff; }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text2);
+  }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger {
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+  }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
+
+  /* TABLE */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  thead {
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    padding: 12px 14px;
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--text2);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  th:hover { color: var(--accent); }
+  td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(79,124,255,.04); }
+
+  /* STATUS BADGES */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--mono);
+    white-space: nowrap;
+  }
+  .badge-fed { background: rgba(79,124,255,.15); color: var(--federal); border: 1px solid rgba(79,124,255,.3); }
+  .badge-mun { background: rgba(167,139,250,.15); color: var(--municipal); border: 1px solid rgba(167,139,250,.3); }
+  .badge-est { background: rgba(0,212,170,.15); color: var(--estadual); border: 1px solid rgba(0,212,170,.3); }
+  .badge-ecac { background: rgba(255,184,79,.15); color: var(--ecac); border: 1px solid rgba(255,184,79,.3); }
+
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .s-aberto { background: var(--accent); }
+  .s-vencendo { background: var(--warn); }
+  .s-vencido { background: var(--danger); }
+  .s-concluido { background: var(--success); }
+  .s-prorrogado { background: var(--municipal); }
+  .s-aguardando { background: #f97316; }
+
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+  .status-aberto { color: var(--accent); }
+  .status-vencendo { color: var(--warn); }
+  .status-vencido { color: var(--danger); }
+  .status-concluido { color: var(--success); }
+  .status-prorrogado { color: var(--municipal); }
+  .status-aguardando { color: #f97316; }
+
+  .prazo-normal { color: var(--text); font-family: var(--mono); font-size: 12px; }
+  .prazo-warn { color: var(--warn); font-family: var(--mono); font-size: 12px; font-weight: 600; }
+  .prazo-danger { color: var(--danger); font-family: var(--mono); font-size: 12px; font-weight: 600; }
+  .prazo-ok { color: var(--success); font-family: var(--mono); font-size: 12px; }
+
+  .numero { font-family: var(--mono); font-size: 12px; color: var(--text2); }
+  .empresa { font-weight: 600; font-size: 13px; }
+  .descricao { color: var(--text2); font-size: 12px; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .acao { font-size: 12px; color: var(--accent2); font-weight: 500; }
+  .ecac-icon { font-size: 14px; }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.7);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    width: 720px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    animation: modalIn .2s ease;
+  }
+  @keyframes modalIn {
+    from { opacity: 0; transform: translateY(16px) scale(.98); }
+    to { opacity: 1; transform: none; }
+  }
+  .modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .modal-close {
+    position: absolute;
+    top: 20px; right: 20px;
+    background: none; border: none;
+    color: var(--text2); cursor: pointer;
+    font-size: 20px; line-height: 1;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background .2s;
+  }
+  .modal-close:hover { background: var(--surface2); color: var(--text); }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1/-1; }
+  label {
+    font-size: 11px;
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text2);
+    font-weight: 500;
+  }
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 13px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--font);
+    outline: none;
+    transition: border-color .2s;
+  }
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus { border-color: var(--accent); }
+  .form-group textarea { resize: vertical; min-height: 70px; }
+
+  .form-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  .form-section-title {
+    font-size: 11px;
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--text3);
+    margin-bottom: 14px;
+  }
+
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 13px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color .2s;
+    user-select: none;
+  }
+  .checkbox-row:hover { border-color: var(--accent); }
+  .checkbox-row input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+  .checkbox-row span { font-size: 13px; }
+
+  .modal-footer {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* HISTORICO MODAL */
+  .hist-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    font-size: 13px;
+  }
+  .hist-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    margin-bottom: 5px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text3);
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  .dias-label {
+    font-size: 11px;
+    font-family: var(--mono);
+    margin-top: 2px;
+  }
+
+  /* ECAC tag */
+  .ecac-tag {
+    font-size: 10px;
+    font-family: var(--mono);
+    background: rgba(255,184,79,.12);
+    color: var(--ecac);
+    border: 1px solid rgba(255,184,79,.25);
+    border-radius: 4px;
+    padding: 1px 5px;
+    vertical-align: middle;
+  }
+
+  .actions-cell { display: flex; gap: 5px; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* PDF UPLOAD */
+  .pdf-drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 28px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+    background: var(--bg);
+    position: relative;
+  }
+  .pdf-drop-zone:hover, .pdf-drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(79,124,255,.06);
+  }
+  .pdf-drop-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .pdf-drop-icon { font-size: 32px; margin-bottom: 8px; }
+  .pdf-drop-text { font-size: 13px; color: var(--text2); }
+  .pdf-drop-text strong { color: var(--accent); }
+  .pdf-drop-sub { font-size: 11px; color: var(--text3); margin-top: 4px; font-family: var(--mono); }
+
+  .pdf-loading {
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(79,124,255,.08);
+    border: 1px solid rgba(79,124,255,.2);
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 13px;
+    color: var(--accent);
+  }
+  .pdf-loading .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(79,124,255,.3);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .pdf-success {
+    background: rgba(79,207,138,.08);
+    border: 1px solid rgba(79,207,138,.2);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--success);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .pdf-error {
+    background: rgba(255,95,95,.08);
+    border: 1px solid rgba(255,95,95,.2);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--danger);
+  }
+  .field-filled {
+    animation: fieldPop .4s ease;
+  }
+  @keyframes fieldPop {
+    0% { background: rgba(79,207,138,.2); }
+    100% { background: transparent; }
+  }
+
+  @media (max-width: 768px) {
+    main { padding: 16px; }
+    header { padding: 0 16px; }
+    .form-grid { grid-template-columns: 1fr; }
+    .form-group.full { grid-column: 1; }
+    .stats { grid-template-columns: repeat(2,1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚖️</div>
+    FISCAL.CTRL
+  </div>
+  <span style="color:var(--text3);font-size:12px;font-family:var(--mono)">// controle de notificações</span>
+  <div class="header-right">
+    <button class="btn btn-primary" onclick="abrirModal()">＋ Nova Notificação</button>
+  </div>
+</header>
+
+<main>
+  <!-- STATS -->
+  <div class="stats" id="stats"></div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <div style="position:relative;flex:1;min-width:200px;display:flex;align-items:center">
+      <input type="text" id="busca" placeholder="🔍  Buscar por empresa, CNPJ, nº processo..." oninput="renderTabela();toggleClearBtn()" style="width:100%;padding-right:32px">
+      <button id="btnLimparBusca" onclick="limparBusca()" title="Limpar busca" style="display:none;position:absolute;right:8px;background:none;border:none;color:var(--text2);cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;border-radius:4px" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text2)'">✕</button>
+    </div>
+    <select id="filtroEsfera" onchange="renderTabela()">
+      <option value="">Todas as esferas</option>
+      <option value="Federal">Federal</option>
+      <option value="Estadual">Estadual</option>
+      <option value="Municipal">Municipal</option>
+    </select>
+    <select id="filtroStatus" onchange="renderTabela()">
+      <option value="">Todos os status</option>
+      <option value="Aberto">Aberto</option>
+      <option value="Vencendo">Vencendo</option>
+      <option value="Vencido">Vencido</option>
+      <option value="Prorrogado">Prorrogado</option>
+      <option value="Aguardando Empresa">Aguardando Empresa</option>
+      <option value="Concluído">Concluído</option>
+    </select>
+    <select id="filtroEcac" onchange="renderTabela()">
+      <option value="">e-CAC: todos</option>
+      <option value="sim">Somente e-CAC</option>
+      <option value="nao">Sem e-CAC</option>
+    </select>
+    <button class="btn btn-outline" onclick="exportarCSV()">↓ Exportar CSV</button>
+  </div>
+
+  <!-- TABELA -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th onclick="ordenar('numero')">Nº Processo ↕</th>
+          <th onclick="ordenar('empresa')">Empresa ↕</th>
+          <th onclick="ordenar('esfera')">Esfera</th>
+          <th onclick="ordenar('tipo')">Tipo / Assunto</th>
+          <th onclick="ordenar('dataNotificacao')">Notificado em ↕</th>
+          <th>Período Fiscalizado</th>
+          <th onclick="ordenar('prazo')">Prazo ↕</th>
+          <th>Prazo Prorrogado</th>
+          <th>e-CAC</th>
+          <th onclick="ordenar('status')">Status ↕</th>
+          <th onclick="ordenar('dataAtendimento')">Atendido em ↕</th>
+          <th>Ação Necessária</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div id="emptyState" class="empty-state" style="display:none">
+      <div class="icon">📋</div>
+      <p>Nenhuma notificação encontrada.</p>
+    </div>
+  </div>
+</main>
+
+<!-- MODAL CADASTRO/EDIÇÃO -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <button class="modal-close" onclick="fecharModal()">✕</button>
+    <div class="modal-title"><span>📋</span> <span id="modalTitulo">Nova Notificação</span></div>
+
+    <!-- PDF UPLOAD -->
+    <div style="margin-bottom:20px">
+      <div id="pdfDropZone" class="pdf-drop-zone" onclick="document.getElementById('pdfInput').click()">
+        <input type="file" id="pdfInput" accept=".pdf,application/pdf" style="display:none" onchange="handlePdfUpload(this.files[0])">
+        <div class="pdf-drop-icon">📄</div>
+        <div class="pdf-drop-text"><strong>Subir PDF da notificação</strong> e preencher automaticamente com IA</div>
+        <div class="pdf-drop-sub">Clique para selecionar ou arraste o arquivo aqui · somente .pdf</div>
+      </div>
+      <div id="pdfStatus" style="margin-top:10px;display:none"></div>
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Nº do Processo / Auto</label>
+        <input type="text" id="f_numero" placeholder="Ex: 19515.001234/2025-01">
+      </div>
+      <div class="form-group">
+        <label>CNPJ / CPF</label>
+        <input type="text" id="f_cnpj" placeholder="00.000.000/0000-00">
+      </div>
+      <div class="form-group full">
+        <label>Empresa / Contribuinte</label>
+        <input type="text" id="f_empresa" placeholder="Razão social ou nome">
+      </div>
+
+      <div class="form-group">
+        <label>Esfera</label>
+        <select id="f_esfera">
+          <option value="">Selecione</option>
+          <option>Federal</option>
+          <option>Estadual</option>
+          <option>Municipal</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Órgão / Secretaria</label>
+        <input type="text" id="f_orgao" placeholder="Ex: Receita Federal, SEFAZ-SP, SMF...">
+      </div>
+
+      <div class="form-group full">
+        <label>Tipo / Assunto da Notificação</label>
+        <input type="text" id="f_tipo" placeholder="Ex: Intimação, Auto de Infração, Diligência, DEFIT...">
+      </div>
+
+      <div class="form-group full">
+        <label>Descrição / Observações</label>
+        <textarea id="f_descricao" placeholder="Descreva o conteúdo da notificação, pendências, observações importantes..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Data da Notificação</label>
+        <input type="date" id="f_dataNotificacao">
+      </div>
+      <div class="form-group">
+        <label>Data do Prazo Original</label>
+        <input type="date" id="f_prazo">
+      </div>
+      <div class="form-group">
+        <label>Prazo Prorrogado (se houver)</label>
+        <input type="date" id="f_prazoProrrogado">
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="f_status">
+          <option>Aberto</option>
+          <option>Prorrogado</option>
+          <option>Aguardando Empresa</option>
+          <option>Concluído</option>
+          <option>Vencido</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Data de Atendimento / Finalização</label>
+        <input type="date" id="f_dataAtendimento">
+      </div>
+      <div class="form-group">
+        <label>Período Fiscalizado — De</label>
+        <input type="month" id="f_periodoIni" placeholder="MM/AAAA">
+      </div>
+      <div class="form-group">
+        <label>Período Fiscalizado — Até</label>
+        <input type="month" id="f_periodoFim" placeholder="MM/AAAA">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">// configurações adicionais</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Ação Necessária</label>
+          <input type="text" id="f_acao" placeholder="Ex: Protocolar defesa, Enviar documentos...">
+        </div>
+        <div class="form-group">
+          <label>Responsável</label>
+          <input type="text" id="f_responsavel" placeholder="Nome do responsável">
+        </div>
+        <div class="form-group">
+          <label>Valor em Discussão (R$)</label>
+          <input type="text" id="f_valor" placeholder="Ex: 15.000,00">
+        </div>
+        <div class="form-group">
+          <label>Nº de Protocolo / Resposta</label>
+          <input type="text" id="f_protocolo" placeholder="Protocolo de entrega">
+        </div>
+        <div class="form-group full">
+          <label class="checkbox-row">
+            <input type="checkbox" id="f_ecac"> <span>🖥️ &nbsp;Esta notificação é via <strong>e-CAC</strong> (portal eletrônico)</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvar()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL HISTÓRICO -->
+<div class="modal-overlay" id="modalHist">
+  <div class="modal" style="max-width:520px">
+    <button class="modal-close" onclick="fecharHist()">✕</button>
+    <div class="modal-title"><span>🕐</span> Histórico de Ações</div>
+    <div id="histConteudo"></div>
+    <div class="form-section">
+      <div class="form-section-title">// registrar nova ação</div>
+      <div class="form-group" style="margin-bottom:10px">
+        <textarea id="novaAcaoTexto" placeholder="Descreva a ação realizada..." style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-family:var(--font);font-size:13px;width:100%;outline:none;resize:vertical;min-height:60px"></textarea>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="adicionarAcao()">＋ Registrar Ação</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="fecharHist()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let dados = JSON.parse(localStorage.getItem('notif_fiscal_v2') || '[]');
+let editandoId = null;
+let histId = null;
+let sortField = 'prazo';
+let sortAsc = true;
+
+function salvar_storage() {
+  localStorage.setItem('notif_fiscal_v2', JSON.stringify(dados));
+}
+
+function getStatusCalc(item) {
+  if (item.status === 'Concluído') return 'Concluído';
+  if (item.status === 'Aguardando Empresa') return 'Aguardando Empresa';
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const prazoAtivo = item.prazoProrrogado || item.prazo;
+  if (!prazoAtivo) return item.status || 'Aberto';
+  const d = new Date(prazoAtivo + 'T00:00:00');
+  const diff = Math.round((d - hoje) / 86400000);
+  if (diff < 0) return 'Vencido';
+  if (diff <= 5) return 'Vencendo';
+  if (item.prazoProrrogado) return 'Prorrogado';
+  return 'Aberto';
+}
+
+function diasRestantes(item) {
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const prazoAtivo = item.prazoProrrogado || item.prazo;
+  if (!prazoAtivo) return null;
+  const d = new Date(prazoAtivo + 'T00:00:00');
+  return Math.round((d - hoje) / 86400000);
+}
+
+function fmtPeriodo(ini, fim) {
+  if (!ini && !fim) return '<span style="color:var(--text3)">—</span>';
+  const fmt = s => { const [y,m] = s.split('-'); return `${m}/${y}`; };
+  if (ini && fim) return `<span style="font-family:var(--mono);font-size:12px">${fmt(ini)} → ${fmt(fim)}</span>`;
+  if (ini) return `<span style="font-family:var(--mono);font-size:12px">a partir de ${fmt(ini)}</span>`;
+  return `<span style="font-family:var(--mono);font-size:12px">até ${fmt(fim)}</span>`;
+}
+
+function toggleClearBtn() {
+  const val = document.getElementById('busca').value;
+  document.getElementById('btnLimparBusca').style.display = val ? 'block' : 'none';
+}
+
+function limparBusca() {
+  document.getElementById('busca').value = '';
+  document.getElementById('btnLimparBusca').style.display = 'none';
+  renderTabela();
+}
+
+function fmtData(s) {
+  if (!s) return '—';
+  const [y,m,d] = s.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function statusHtml(status) {
+  const map = {
+    'Aberto':            ['s-aberto',    'status-aberto',    'Aberto'],
+    'Vencendo':          ['s-vencendo',  'status-vencendo',  '⚠ Vencendo'],
+    'Vencido':           ['s-vencido',   'status-vencido',   '✕ Vencido'],
+    'Concluído':         ['s-concluido', 'status-concluido', '✓ Concluído'],
+    'Prorrogado':        ['s-prorrogado','status-prorrogado','⟳ Prorrogado'],
+    'Aguardando Empresa':['s-aguardando','status-aguardando','⏳ Ag. Empresa'],
+  };
+  const [dot, cls, label] = map[status] || ['s-aberto','status-aberto', status];
+  return `<span class="status-badge ${cls}"><span class="status-dot ${dot}"></span>${label}</span>`;
+}
+
+function esferaHtml(esfera) {
+  if (!esfera) return '—';
+  const map = { Federal:'badge-fed', Estadual:'badge-est', Municipal:'badge-mun' };
+  return `<span class="badge ${map[esfera]||'badge-fed'}">${esfera}</span>`;
+}
+
+function prazoHtml(item) {
+  const dias = diasRestantes(item);
+  if (dias === null) return '<span style="color:var(--text3)">—</span>';
+  const prazoAtivo = item.prazoProrrogado || item.prazo;
+  let cls = 'prazo-normal', diasLabel = '';
+
+  if (item.status !== 'Concluído' && item.status !== 'Aguardando Empresa') {
+    if (dias < 0) { cls = 'prazo-danger'; diasLabel = `<div class="dias-label" style="color:var(--danger)">${Math.abs(dias)}d vencido</div>`; }
+    else if (dias <= 5) { cls = 'prazo-warn'; diasLabel = `<div class="dias-label" style="color:var(--warn)">${dias}d restante${dias!==1?'s':''}</div>`; }
+    else { diasLabel = `<div class="dias-label" style="color:var(--text3)">${dias}d restantes</div>`; }
+  } else { cls = 'prazo-ok'; }
+
+  return `<div><span class="${cls}">${fmtData(prazoAtivo)}</span>${diasLabel}</div>`;
+}
+
+function renderStats() {
+  const el = document.getElementById('stats');
+  const todos = dados.map(d => ({...d, _status: getStatusCalc(d)}));
+  const total = todos.length;
+  const vencendo = todos.filter(d => d._status === 'Vencendo').length;
+  const vencidas = todos.filter(d => d._status === 'Vencido').length;
+  const concluidos = todos.filter(d => d._status === 'Concluído').length;
+  const pendentes = todos.filter(d => ['Aberto','Prorrogado'].includes(d._status)).length;
+  const aguardando = todos.filter(d => d._status === 'Aguardando Empresa').length;
+  el.innerHTML = `
+    <div class="stat"><div class="stat-label">Total</div><div class="stat-value total">${total}</div></div>
+    <div class="stat"><div class="stat-label">⚠ Vencendo (≤5d)</div><div class="stat-value vencendo">${vencendo}</div></div>
+    <div class="stat"><div class="stat-label">✕ Vencidas</div><div class="stat-value vencidas">${vencidas}</div></div>
+    <div class="stat"><div class="stat-label">Em Aberto</div><div class="stat-value pendente">${pendentes}</div></div>
+    <div class="stat"><div class="stat-label">⏳ Ag. Empresa</div><div class="stat-value" style="color:#f97316">${aguardando}</div></div>
+    <div class="stat"><div class="stat-label">✓ Concluídas</div><div class="stat-value ok">${concluidos}</div></div>
+    <div class="stat"><div class="stat-label">e-CAC</div><div class="stat-value" style="color:var(--ecac)">${dados.filter(d=>d.ecac).length}</div></div>
+  `;
+}
+
+function getFiltrados() {
+  const busca = document.getElementById('busca').value.toLowerCase();
+  const fEsfera = document.getElementById('filtroEsfera').value;
+  const fStatus = document.getElementById('filtroStatus').value;
+  const fEcac = document.getElementById('filtroEcac').value;
+
+  return dados.filter(d => {
+    const status = getStatusCalc(d);
+    if (fEsfera && d.esfera !== fEsfera) return false;
+    if (fStatus && status !== fStatus) return false;
+    if (fEcac === 'sim' && !d.ecac) return false;
+    if (fEcac === 'nao' && d.ecac) return false;
+    if (busca) {
+      const txt = [d.numero,d.empresa,d.cnpj,d.tipo,d.descricao,d.orgao].join(' ').toLowerCase();
+      if (!txt.includes(busca)) return false;
+    }
+    return true;
+  }).map(d => ({...d, _status: getStatusCalc(d)}));
+}
+
+function renderTabela() {
+  const lista = getFiltrados();
+  lista.sort((a,b) => {
+    let va = a[sortField] || '', vb = b[sortField] || '';
+    return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+  });
+
+  const tbody = document.getElementById('tbody');
+  const empty = document.getElementById('emptyState');
+
+  if (lista.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = lista.map(d => `
+    <tr>
+      <td><div class="numero">${d.numero||'—'}</div></td>
+      <td>
+        <div class="empresa">${d.empresa||'—'}</div>
+        <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${d.cnpj||''}</div>
+      </td>
+      <td>
+        ${esferaHtml(d.esfera)}
+        ${d.orgao ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">${d.orgao}</div>` : ''}
+      </td>
+      <td>
+        <div style="font-weight:600;font-size:13px">${d.tipo||'—'}</div>
+        <div class="descricao">${d.descricao||''}</div>
+      </td>
+      <td><span class="prazo-normal">${fmtData(d.dataNotificacao)}</span></td>
+      <td>${fmtPeriodo(d.periodoIni, d.periodoFim)}</td>
+      <td>${prazoHtml(d)}</td>
+      <td>${d.prazoProrrogado ? `<span class="prazo-normal" style="color:var(--municipal)">${fmtData(d.prazoProrrogado)}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
+      <td>${d.ecac ? '<span class="ecac-tag">e-CAC</span>' : '<span style="color:var(--text3);font-size:12px">—</span>'}</td>
+      <td>${statusHtml(d._status)}</td>
+      <td>${d.dataAtendimento ? `<span class="prazo-ok">${fmtData(d.dataAtendimento)}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
+      <td><span class="acao">${d.acao||'—'}</span>${d.responsavel?`<div style="font-size:11px;color:var(--text3)">${d.responsavel}</div>`:''}</td>
+      <td>
+        <div class="actions-cell">
+          <button class="btn btn-outline btn-sm" onclick="editarItem('${d.id}')" title="Editar">✏</button>
+          <button class="btn btn-outline btn-sm" onclick="verHist('${d.id}')" title="Histórico">🕐</button>
+          <button class="btn btn-danger btn-sm" onclick="excluir('${d.id}')" title="Excluir">✕</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  renderStats();
+}
+
+function ordenar(field) {
+  if (sortField === field) sortAsc = !sortAsc;
+  else { sortField = field; sortAsc = true; }
+  renderTabela();
+}
+
+function abrirModal(id) {
+  editandoId = id || null;
+  const item = id ? dados.find(d => d.id === id) : null;
+  document.getElementById('modalTitulo').textContent = id ? 'Editar Notificação' : 'Nova Notificação';
+
+  const campos = ['numero','cnpj','empresa','esfera','orgao','tipo','descricao','dataNotificacao','prazo','prazoProrrogado','dataAtendimento','periodoIni','periodoFim','status','acao','responsavel','valor','protocolo'];
+  campos.forEach(c => {
+    const el = document.getElementById('f_'+c);
+    if (el) el.value = item ? (item[c]||'') : (c==='status'?'Aberto':'');
+  });
+  document.getElementById('f_ecac').checked = item ? !!item.ecac : false;
+
+  if (!item) {
+    const hoje = new Date().toISOString().split('T')[0];
+    document.getElementById('f_dataNotificacao').value = hoje;
+  }
+
+  document.getElementById('modalOverlay').classList.add('active');
+  // Reset PDF status
+  const ps = document.getElementById('pdfStatus');
+  if (ps) { ps.style.display = 'none'; ps.innerHTML = ''; }
+}
+
+function fecharModal() {
+  document.getElementById('modalOverlay').classList.remove('active');
+  editandoId = null;
+}
+
+function salvar() {
+  const get = id => document.getElementById('f_'+id).value.trim();
+  const item = {
+    id: editandoId || Date.now().toString(),
+    numero: get('numero'),
+    cnpj: get('cnpj'),
+    empresa: get('empresa'),
+    esfera: get('esfera'),
+    orgao: get('orgao'),
+    tipo: get('tipo'),
+    descricao: get('descricao'),
+    dataNotificacao: get('dataNotificacao'),
+    prazo: get('prazo'),
+    prazoProrrogado: get('prazoProrrogado'),
+    dataAtendimento: get('dataAtendimento'),
+    periodoIni: get('periodoIni'),
+    periodoFim: get('periodoFim'),
+    status: get('status'),
+    acao: get('acao'),
+    responsavel: get('responsavel'),
+    valor: get('valor'),
+    protocolo: get('protocolo'),
+    ecac: document.getElementById('f_ecac').checked,
+    historico: editandoId ? (dados.find(d=>d.id===editandoId)?.historico||[]) : [],
+  };
+
+  if (editandoId) {
+    const idx = dados.findIndex(d => d.id === editandoId);
+    dados[idx] = item;
+  } else {
+    dados.push(item);
+  }
+  salvar_storage();
+  fecharModal();
+  renderTabela();
+}
+
+function editarItem(id) { abrirModal(id); }
+
+function excluir(id) {
+  if (!confirm('Deseja excluir esta notificação?')) return;
+  dados = dados.filter(d => d.id !== id);
+  salvar_storage();
+  renderTabela();
+}
+
+function verHist(id) {
+  histId = id;
+  renderHist();
+  document.getElementById('modalHist').classList.add('active');
+}
+
+function fecharHist() {
+  document.getElementById('modalHist').classList.remove('active');
+  histId = null;
+}
+
+function renderHist() {
+  const item = dados.find(d => d.id === histId);
+  if (!item) return;
+  const hist = item.historico || [];
+  const el = document.getElementById('histConteudo');
+  if (hist.length === 0) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:10px 0">Nenhuma ação registrada ainda.</div>';
+    return;
+  }
+  el.innerHTML = [...hist].reverse().map(h => `
+    <div class="hist-item">
+      <div class="hist-meta">${h.data} · ${h.hora}</div>
+      <div>${h.texto}</div>
+    </div>
+  `).join('');
+}
+
+function adicionarAcao() {
+  const texto = document.getElementById('novaAcaoTexto').value.trim();
+  if (!texto) return;
+  const item = dados.find(d => d.id === histId);
+  if (!item) return;
+  if (!item.historico) item.historico = [];
+  const now = new Date();
+  item.historico.push({
+    data: now.toLocaleDateString('pt-BR'),
+    hora: now.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}),
+    texto,
+  });
+  document.getElementById('novaAcaoTexto').value = '';
+  salvar_storage();
+  renderHist();
+}
+
+function exportarCSV() {
+  const lista = getFiltrados();
+  const header = ['Nº Processo','CNPJ','Empresa','Esfera','Órgão','Tipo','Descrição','Data Notificação','Prazo Original','Prazo Prorrogado','Data Atendimento','e-CAC','Status','Ação','Responsável','Valor','Protocolo'];
+  const rows = lista.map(d => [
+    d.numero,d.cnpj,d.empresa,d.esfera,d.orgao,d.tipo,d.descricao,
+    fmtData(d.dataNotificacao),fmtData(d.prazo),fmtData(d.prazoProrrogado),fmtData(d.dataAtendimento),
+    d.ecac?'Sim':'Não',getStatusCalc(d),d.acao,d.responsavel,d.valor,d.protocolo
+  ].map(v => `"${(v||'').replace(/"/g,'""')}"`));
+
+  const csv = [header.join(','), ...rows.map(r=>r.join(','))].join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `notificacoes_fiscais_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+}
+
+// Fechar modal clicando fora
+document.getElementById('modalOverlay').addEventListener('click', e => { if(e.target===e.currentTarget) fecharModal(); });
+document.getElementById('modalHist').addEventListener('click', e => { if(e.target===e.currentTarget) fecharHist(); });
+
+// --- PDF UPLOAD ---
+const dropZone = document.getElementById('pdfDropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type === 'application/pdf') handlePdfUpload(file);
+  else mostrarPdfStatus('error', 'Por favor, selecione um arquivo PDF válido.');
+});
+
+async function handlePdfUpload(file) {
+  if (!file) return;
+  mostrarPdfStatus('loading', `📄 Extraindo texto do PDF...`);
+
+  try {
+    const texto = await extrairTextoPdf(file);
+    if (!texto || texto.trim().length < 30) {
+      throw new Error('PDF sem texto legível. Tente um PDF não escaneado.');
+    }
+
+    mostrarPdfStatus('loading', `🤖 Identificando dados com IA...`);
+
+    const prompt = `Você é especialista em documentos fiscais brasileiros. Analise o texto abaixo e extraia os dados, retornando APENAS JSON válido, sem markdown, sem explicação.
+
+ATENÇÃO PARA DATAS: Converta SEMPRE para o formato YYYY-MM-DD.
+Exemplos:
+- "01 de dezembro de 2025" → "2025-12-01"
+- "15/03/2025" → "2025-03-15"
+Meses: janeiro=01, fevereiro=02, março=03, abril=04, maio=05, junho=06, julho=07, agosto=08, setembro=09, outubro=10, novembro=11, dezembro=12
+
+Retorne SOMENTE este JSON (sem texto antes ou depois):
+{
+  "numero": "número do processo, auto de infração ou protocolo",
+  "cnpj": "CNPJ ou CPF com formatação (ex: 00.000.000/0000-00)",
+  "empresa": "nome da empresa ou contribuinte",
+  "esfera": "Federal, Estadual ou Municipal",
+  "orgao": "órgão emissor (ex: Receita Federal, SEFAZ-RO, Prefeitura)",
+  "tipo": "tipo da notificação (ex: Auto de Infração, Intimação, DEFIT)",
+  "descricao": "resumo em 1-2 frases do motivo",
+  "dataNotificacao": "data de emissão em YYYY-MM-DD",
+  "prazo": "prazo final para resposta em YYYY-MM-DD",
+  "valor": "valor autuado em reais ex: 15.000,00",
+  "ecac": true ou false,
+  "acao": "ação recomendada"
+}
+
+TEXTO DO DOCUMENTO:
+${texto.slice(0, 8000)}`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 800,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
+    const data = await response.json();
+    const rawText = data.content.map(b => b.text || '').join('').trim();
+    const clean = rawText.replace(/```json|```/gi, '').trim();
+    const extracted = JSON.parse(clean);
+
+    preencherCampos(extracted);
+    mostrarPdfStatus('success', `✓ Dados extraídos! Revise os campos antes de salvar.`);
+
+  } catch (err) {
+    console.error(err);
+    mostrarPdfStatus('error', `Erro ao extrair dados.<br><small style="opacity:.7">${err.message}</small>`);
+  }
+
+  document.getElementById('pdfInput').value = '';
+}
+
+// Extrai texto do PDF localmente usando PDF.js
+async function extrairTextoPdf(file) {
+  if (!window.pdfjsLib) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload = () => {
+        // Desabilita o worker externo — funciona tanto em file:// quanto http://
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+        resolve();
+      };
+      s.onerror = () => reject(new Error('Não foi possível carregar o PDF.js. Verifique sua conexão com a internet.'));
+      document.head.appendChild(s);
+    });
+  } else {
+    // Garante que o worker está desabilitado mesmo se já carregado
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({
+    data: arrayBuffer,
+    disableWorker: true,    // roda tudo na thread principal — sem problema de CORS/file://
+    verbosity: 0,           // silencia warnings do console
+  }).promise;
+
+  let textoTotal = '';
+  const maxPaginas = Math.min(pdf.numPages, 5);
+  for (let i = 1; i <= maxPaginas; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const pagina = content.items.map(item => item.str).join(' ');
+    textoTotal += pagina + '\n';
+  }
+  return textoTotal;
+}
+
+function preencherCampos(data) {
+  const map = {
+    numero: 'f_numero', cnpj: 'f_cnpj', empresa: 'f_empresa',
+    orgao: 'f_orgao', tipo: 'f_tipo', descricao: 'f_descricao',
+    dataNotificacao: 'f_dataNotificacao', prazo: 'f_prazo', valor: 'f_valor', acao: 'f_acao'
+  };
+
+  Object.entries(map).forEach(([key, elId]) => {
+    if (data[key]) {
+      const el = document.getElementById(elId);
+      if (el) {
+        el.value = data[key];
+        el.classList.add('field-filled');
+        setTimeout(() => el.classList.remove('field-filled'), 500);
+      }
+    }
+  });
+
+  // Esfera
+  if (data.esfera && ['Federal','Estadual','Municipal'].includes(data.esfera)) {
+    document.getElementById('f_esfera').value = data.esfera;
+  }
+
+  // e-CAC checkbox
+  if (typeof data.ecac === 'boolean') {
+    document.getElementById('f_ecac').checked = data.ecac;
+  }
+}
+
+function mostrarPdfStatus(tipo, msg) {
+  const el = document.getElementById('pdfStatus');
+  el.style.display = 'block';
+  if (tipo === 'loading') {
+    el.innerHTML = `<div class="pdf-loading"><div class="spinner"></div><span>${msg}</span></div>`;
+  } else if (tipo === 'success') {
+    el.innerHTML = `<div class="pdf-success">${msg}</div>`;
+  } else {
+    el.innerHTML = `<div class="pdf-error">⚠ ${msg}</div>`;
+  }
+}
+
+// Dados de exemplo
+if (dados.length === 0) {
+  const hoje = new Date();
+  const d = (offset) => {
+    const dt = new Date(hoje);
+    dt.setDate(dt.getDate() + offset);
+    return dt.toISOString().split('T')[0];
+  };
+  dados = [
+    { id:'1', numero:'19515.001234/2025-01', cnpj:'12.345.678/0001-99', empresa:'Comercial Ltda', esfera:'Federal', orgao:'Receita Federal', tipo:'Intimação - IRPJ', descricao:'Solicitação de documentos comprobatórios de deduções', dataNotificacao:d(-30), prazo:d(3), prazoProrrogado:'', status:'Aberto', acao:'Protocolar documentos no e-CAC', responsavel:'Juliana', valor:'45.000,00', protocolo:'', ecac:true, historico:[{data:'10/03/2025',hora:'09:15',texto:'Notificação recebida via e-CAC. Encaminhada para análise.'}] },
+    { id:'2', numero:'MSP-2025-00892', cnpj:'98.765.432/0001-11', empresa:'Tech Soluções S/A', esfera:'Municipal', orgao:'Secretaria Fazenda', tipo:'Auto de Infração - ISS', descricao:'ISS não recolhido sobre serviços de TI - competência 2023', dataNotificacao:d(-20), prazo:d(-2), prazoProrrogado:'', status:'Vencido', acao:'Protocolar defesa administrativa', responsavel:'Carlos', valor:'12.500,00', protocolo:'', ecac:false, historico:[] },
+    { id:'3', numero:'SEFAZ-SP-1099/2025', cnpj:'55.555.555/0001-55', empresa:'Indústria ABC', esfera:'Estadual', orgao:'SEFAZ-SP', tipo:'DEFIT - Diferença ICMS', descricao:'Diferença de ICMS apurada no SPED', dataNotificacao:d(-15), prazo:d(20), prazoProrrogado:d(35), status:'Prorrogado', acao:'Aguardar resposta da prorrogação', responsavel:'Juliana', valor:'78.000,00', protocolo:'PROT-2025-00445', ecac:false, historico:[{data:'15/03/2025',hora:'14:30',texto:'Solicitada prorrogação de prazo. Deferida por 15 dias.'}] },
+    { id:'4', numero:'19515.009876/2025-02', cnpj:'11.222.333/0001-44', empresa:'Distribuidora XYZ', esfera:'Federal', orgao:'Receita Federal', tipo:'Malha PJ - DCTF', descricao:'Inconsistência entre DCTF e EFD-Contribuições', dataNotificacao:d(-5), prazo:d(25), prazoProrrogado:'', status:'Aberto', acao:'Analisar e retificar DCTF', responsavel:'Ana Paula', valor:'', protocolo:'', ecac:true, historico:[] },
+  ];
+  salvar_storage();
+}
+
+renderTabela();
+</script>
+</body>
+</html>
