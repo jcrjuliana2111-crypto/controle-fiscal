@@ -1115,6 +1115,8 @@ ${texto.slice(0, 8000)}`;
 
     if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
     const data = await response.json();
+    console.log('Resposta API:', JSON.stringify(data));
+    if (!data || !data.content) throw new Error(`Resposta inesperada: ${JSON.stringify(data)}`);
     const rawText = data.content.map(b => b.text || '').join('').trim();
     const clean = rawText.replace(/```json|```/gi, '').trim();
     const extracted = JSON.parse(clean);
