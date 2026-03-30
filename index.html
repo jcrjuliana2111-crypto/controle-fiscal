@@ -727,14 +727,84 @@
 </div>
 
 <script>
-let dados = JSON.parse(localStorage.getItem('notif_fiscal_v2') || '[]');
+// --- SUPABASE CONFIG ---
+const SUPA_URL = 'https://qftusjwnlyjokilcjuzb.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmdHVzandubHlqb2tpbGNqdXpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3NDUwNzAsImV4cCI6MjA5MDMyMTA3MH0.rs_L_f4gkybqhQesg6kh66xv2fGABvaC7WHzJk-PQ9M';
+
+const supa = {
+  async get() {
+    const r = await fetch(`${SUPA_URL}/rest/v1/notificacoes_fiscais?order=created_at.desc`, {
+      headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` }
+    });
+    const rows = await r.json();
+    return rows.map(fromDb);
+  },
+  async upsert(item) {
+    await fetch(`${SUPA_URL}/rest/v1/notificacoes_fiscais`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify(toDb(item))
+    });
+  },
+  async delete(id) {
+    await fetch(`${SUPA_URL}/rest/v1/notificacoes_fiscais?id=eq.${id}`, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPA_KEY, 'Authorization': `Bearer ${SUPA_KEY}` }
+    });
+  }
+};
+
+function toDb(d) {
+  return {
+    id: d.id, numero: d.numero, cnpj: d.cnpj, empresa: d.empresa,
+    esfera: d.esfera, orgao: d.orgao, tipo: d.tipo, descricao: d.descricao,
+    data_notificacao: d.dataNotificacao||null, data_ciencia: d.dataCiencia||null,
+    prazo: d.prazo||null, prazo_prorrogado: d.prazoProrrogado||null,
+    data_atendimento: d.dataAtendimento||null,
+    periodo_ini: d.periodoIni||null, periodo_fim: d.periodoFim||null,
+    status: d.status, acao: d.acao, responsavel: d.responsavel,
+    valor: d.valor, protocolo: d.protocolo, ecac: !!d.ecac,
+    historico: d.historico||[]
+  };
+}
+
+function fromDb(r) {
+  return {
+    id: r.id, numero: r.numero||'', cnpj: r.cnpj||'', empresa: r.empresa||'',
+    esfera: r.esfera||'', orgao: r.orgao||'', tipo: r.tipo||'', descricao: r.descricao||'',
+    dataNotificacao: r.data_notificacao||'', dataCiencia: r.data_ciencia||'',
+    prazo: r.prazo||'', prazoProrrogado: r.prazo_prorrogado||'',
+    dataAtendimento: r.data_atendimento||'',
+    periodoIni: r.periodo_ini||'', periodoFim: r.periodo_fim||'',
+    status: r.status||'Aberto', acao: r.acao||'', responsavel: r.responsavel||'',
+    valor: r.valor||'', protocolo: r.protocolo||'', ecac: !!r.ecac,
+    historico: r.historico||[]
+  };
+}
+
+let dados = [];
 let editandoId = null;
 let histId = null;
 let sortField = 'prazo';
 let sortAsc = true;
 
-function salvar_storage() {
-  localStorage.setItem('notif_fiscal_v2', JSON.stringify(dados));
+async function salvar_storage() {
+  // não usado — mantido para compatibilidade
+}
+
+async function carregarDados() {
+  document.getElementById('tbody').innerHTML = `<tr><td colspan="13" style="text-align:center;padding:40px;color:var(--text3)">⏳ Carregando...</td></tr>`;
+  try {
+    dados = await supa.get();
+    renderTabela();
+  } catch(e) {
+    console.error(e);
+    document.getElementById('tbody').innerHTML = `<tr><td colspan="13" style="text-align:center;padding:40px;color:var(--danger)">Erro ao carregar dados: ${e.message}</td></tr>`;
+  }
 }
 
 function getStatusCalc(item) {
@@ -946,50 +1016,43 @@ function fecharModal() {
   editandoId = null;
 }
 
-function salvar() {
+async function salvar() {
   const get = id => document.getElementById('f_'+id).value.trim();
   const item = {
     id: editandoId || Date.now().toString(),
-    numero: get('numero'),
-    cnpj: get('cnpj'),
-    empresa: get('empresa'),
-    esfera: get('esfera'),
-    orgao: get('orgao'),
-    tipo: get('tipo'),
-    descricao: get('descricao'),
-    dataNotificacao: get('dataNotificacao'),
-    dataCiencia: get('dataCiencia'),
-    prazo: get('prazo'),
-    prazoProrrogado: get('prazoProrrogado'),
-    dataAtendimento: get('dataAtendimento'),
-    periodoIni: get('periodoIni'),
-    periodoFim: get('periodoFim'),
-    status: get('status'),
-    acao: get('acao'),
-    responsavel: get('responsavel'),
-    valor: get('valor'),
-    protocolo: get('protocolo'),
+    numero: get('numero'), cnpj: get('cnpj'), empresa: get('empresa'),
+    esfera: get('esfera'), orgao: get('orgao'), tipo: get('tipo'),
+    descricao: get('descricao'), dataNotificacao: get('dataNotificacao'),
+    dataCiencia: get('dataCiencia'), prazo: get('prazo'),
+    prazoProrrogado: get('prazoProrrogado'), dataAtendimento: get('dataAtendimento'),
+    periodoIni: get('periodoIni'), periodoFim: get('periodoFim'),
+    status: get('status'), acao: get('acao'), responsavel: get('responsavel'),
+    valor: get('valor'), protocolo: get('protocolo'),
     ecac: document.getElementById('f_ecac').checked,
     historico: editandoId ? (dados.find(d=>d.id===editandoId)?.historico||[]) : [],
   };
 
-  if (editandoId) {
-    const idx = dados.findIndex(d => d.id === editandoId);
-    dados[idx] = item;
-  } else {
-    dados.push(item);
+  const btn = document.querySelector('.modal-footer .btn-primary');
+  btn.textContent = '⏳ Salvando...'; btn.disabled = true;
+  try {
+    await supa.upsert(item);
+    if (editandoId) { const idx = dados.findIndex(d=>d.id===editandoId); dados[idx]=item; }
+    else { dados.unshift(item); }
+    fecharModal();
+    renderTabela();
+  } catch(e) {
+    alert('Erro ao salvar: ' + e.message);
+  } finally {
+    btn.textContent = '💾 Salvar'; btn.disabled = false;
   }
-  salvar_storage();
-  fecharModal();
-  renderTabela();
 }
 
 function editarItem(id) { abrirModal(id); }
 
-function excluir(id) {
+async function excluir(id) {
   if (!confirm('Deseja excluir esta notificação?')) return;
+  await supa.delete(id);
   dados = dados.filter(d => d.id !== id);
-  salvar_storage();
   renderTabela();
 }
 
@@ -1021,7 +1084,7 @@ function renderHist() {
   `).join('');
 }
 
-function adicionarAcao() {
+async function adicionarAcao() {
   const texto = document.getElementById('novaAcaoTexto').value.trim();
   if (!texto) return;
   const item = dados.find(d => d.id === histId);
@@ -1034,7 +1097,7 @@ function adicionarAcao() {
     texto,
   });
   document.getElementById('novaAcaoTexto').value = '';
-  salvar_storage();
+  await supa.upsert(item);
   renderHist();
 }
 
@@ -1224,24 +1287,8 @@ function mostrarPdfStatus(tipo, msg) {
   }
 }
 
-// Dados de exemplo
-if (dados.length === 0) {
-  const hoje = new Date();
-  const d = (offset) => {
-    const dt = new Date(hoje);
-    dt.setDate(dt.getDate() + offset);
-    return dt.toISOString().split('T')[0];
-  };
-  dados = [
-    { id:'1', numero:'19515.001234/2025-01', cnpj:'12.345.678/0001-99', empresa:'Comercial Ltda', esfera:'Federal', orgao:'Receita Federal', tipo:'Intimação - IRPJ', descricao:'Solicitação de documentos comprobatórios de deduções', dataNotificacao:d(-30), prazo:d(3), prazoProrrogado:'', status:'Aberto', acao:'Protocolar documentos no e-CAC', responsavel:'Juliana', valor:'45.000,00', protocolo:'', ecac:true, historico:[{data:'10/03/2025',hora:'09:15',texto:'Notificação recebida via e-CAC. Encaminhada para análise.'}] },
-    { id:'2', numero:'MSP-2025-00892', cnpj:'98.765.432/0001-11', empresa:'Tech Soluções S/A', esfera:'Municipal', orgao:'Secretaria Fazenda', tipo:'Auto de Infração - ISS', descricao:'ISS não recolhido sobre serviços de TI - competência 2023', dataNotificacao:d(-20), prazo:d(-2), prazoProrrogado:'', status:'Vencido', acao:'Protocolar defesa administrativa', responsavel:'Carlos', valor:'12.500,00', protocolo:'', ecac:false, historico:[] },
-    { id:'3', numero:'SEFAZ-SP-1099/2025', cnpj:'55.555.555/0001-55', empresa:'Indústria ABC', esfera:'Estadual', orgao:'SEFAZ-SP', tipo:'DEFIT - Diferença ICMS', descricao:'Diferença de ICMS apurada no SPED', dataNotificacao:d(-15), prazo:d(20), prazoProrrogado:d(35), status:'Prorrogado', acao:'Aguardar resposta da prorrogação', responsavel:'Juliana', valor:'78.000,00', protocolo:'PROT-2025-00445', ecac:false, historico:[{data:'15/03/2025',hora:'14:30',texto:'Solicitada prorrogação de prazo. Deferida por 15 dias.'}] },
-    { id:'4', numero:'19515.009876/2025-02', cnpj:'11.222.333/0001-44', empresa:'Distribuidora XYZ', esfera:'Federal', orgao:'Receita Federal', tipo:'Malha PJ - DCTF', descricao:'Inconsistência entre DCTF e EFD-Contribuições', dataNotificacao:d(-5), prazo:d(25), prazoProrrogado:'', status:'Aberto', acao:'Analisar e retificar DCTF', responsavel:'Ana Paula', valor:'', protocolo:'', ecac:true, historico:[] },
-  ];
-  salvar_storage();
-}
-
-renderTabela();
+// Iniciar carregando do Supabase
+carregarDados();
 </script>
 </body>
 </html>
