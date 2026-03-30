@@ -179,7 +179,8 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 12px;
-    overflow: auto;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
   table {
     width: 100%;
@@ -1127,9 +1128,24 @@ function fecharModal() {
 
 async function salvar() {
   const get = id => document.getElementById('f_'+id).value.trim();
+  const numero = get('numero');
+  const cnpj = get('cnpj');
+
+  // Verificar duplicidade
+  if (!editandoId) {
+    const duplicado = dados.find(d => {
+      const mesmoNumero = numero && d.numero && d.numero.toLowerCase() === numero.toLowerCase();
+      const mesmoCnpjTipo = cnpj && d.cnpj && d.cnpj === cnpj && get('tipo') && d.tipo === get('tipo') && get('dataNotificacao') && d.dataNotificacao === get('dataNotificacao');
+      return mesmoNumero || mesmoCnpjTipo;
+    });
+    if (duplicado) {
+      const confirmar = confirm(`⚠️ Possível duplicidade detectada!\n\nJá existe uma notificação com dados similares:\n• ${duplicado.empresa||'—'}\n• ${duplicado.numero||'—'}\n• ${duplicado.tipo||'—'}\n\nDeseja cadastrar mesmo assim?`);
+      if (!confirmar) return;
+    }
+  }
   const item = {
     id: editandoId || Date.now().toString(),
-    numero: get('numero'), cnpj: get('cnpj'), empresa: get('empresa'),
+    numero, cnpj, empresa: get('empresa'),
     esfera: get('esfera'), orgao: get('orgao'), tipo: get('tipo'),
     descricao: get('descricao'), dataNotificacao: get('dataNotificacao'),
     dataCiencia: get('dataCiencia'), prazo: get('prazo'),
@@ -1139,6 +1155,7 @@ async function salvar() {
     valor: get('valor'), protocolo: get('protocolo'),
     ecac: document.getElementById('f_ecac').checked,
     historico: editandoId ? (dados.find(d=>d.id===editandoId)?.historico||[]) : [],
+    pdfUrl: editandoId ? (dados.find(d=>d.id===editandoId)?.pdfUrl||'') : '',
   };
 
   const btn = document.querySelector('.modal-footer .btn-primary');
