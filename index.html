@@ -493,12 +493,78 @@
     100% { background: transparent; }
   }
 
+  @media (max-width: 1024px) {
+    .stats { grid-template-columns: repeat(3,1fr); }
+    th:nth-child(7), td:nth-child(7) { display:none; } /* período */
+    th:nth-child(9), td:nth-child(9) { display:none; } /* prazo prorrogado */
+    th:nth-child(12), td:nth-child(12) { display:none; } /* atendido em */
+  }
+
   @media (max-width: 768px) {
-    main { padding: 16px; }
-    header { padding: 0 16px; }
+    main { padding: 12px; }
+    header { padding: 0 14px; height: 56px; }
+    header .logo { font-size: 12px; }
+    header span[style*="text3"] { display: none; }
+    .stats { grid-template-columns: repeat(2,1fr); gap: 10px; }
+    .stat { padding: 12px 14px; }
+    .stat-value { font-size: 22px; }
+    .toolbar { gap: 8px; }
+    .toolbar select { font-size: 12px; padding: 8px 10px; }
     .form-grid { grid-template-columns: 1fr; }
     .form-group.full { grid-column: 1; }
+    .modal { padding: 20px 16px; }
+
+    /* Tabela vira cards no mobile */
+    .table-wrap { border-radius: 10px; overflow: hidden; }
+    table thead { display: none; }
+    table, tbody, tr, td { display: block; width: 100%; }
+    tr {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 10px;
+      padding: 14px;
+      position: relative;
+    }
+    tr:hover td { background: transparent; }
+    td { 
+      border: none; 
+      padding: 3px 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    td:empty { display: none; }
+    td::before {
+      content: attr(data-label);
+      font-size: 10px;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      color: var(--text3);
+      min-width: 90px;
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+    td:nth-child(1)  { font-weight:700; font-size:14px; margin-bottom:6px; }
+    td:nth-child(1)::before { display:none; }
+    td:nth-child(14) { /* ações */
+      position: absolute;
+      top: 12px; right: 12px;
+      padding: 0;
+    }
+    td:nth-child(14)::before { display:none; }
+    td:nth-child(7),
+    td:nth-child(9),
+    td:nth-child(12) { display: none; }
+  }
+
+  @media (max-width: 480px) {
     .stats { grid-template-columns: repeat(2,1fr); }
+    .btn-primary { font-size: 12px; padding: 8px 12px; }
+    .toolbar { flex-direction: column; }
+    .toolbar > * { width: 100%; }
+    .modal { max-width: 100vw; border-radius: 12px 12px 0 0; }
+    .modal-overlay { align-items: flex-end; }
   }
 </style>
 </head>
@@ -566,7 +632,8 @@
           <th onclick="ordenar('status')">Status ↕</th>
           <th onclick="ordenar('dataAtendimento')">Atendido em ↕</th>
           <th>Ação Necessária</th>
-          <th>Ações</th>
+          <th>PDF</th>
+          <th style="min-width:100px">Ações</th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
@@ -769,7 +836,7 @@ function toDb(d) {
     periodo_ini: d.periodoIni||null, periodo_fim: d.periodoFim||null,
     status: d.status, acao: d.acao, responsavel: d.responsavel,
     valor: d.valor, protocolo: d.protocolo, ecac: !!d.ecac,
-    historico: d.historico||[]
+    historico: d.historico||[], pdf_url: d.pdfUrl||null
   };
 }
 
@@ -783,7 +850,7 @@ function fromDb(r) {
     periodoIni: r.periodo_ini||'', periodoFim: r.periodo_fim||'',
     status: r.status||'Aberto', acao: r.acao||'', responsavel: r.responsavel||'',
     valor: r.valor||'', protocolo: r.protocolo||'', ecac: !!r.ecac,
-    historico: r.historico||[]
+    historico: r.historico||[], pdfUrl: r.pdf_url||''
   };
 }
 
@@ -797,7 +864,37 @@ async function salvar_storage() {
   // não usado — mantido para compatibilidade
 }
 
-async function carregarDados() {
+async function uploadPdf(event, id) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const item = dados.find(d => d.id === id);
+  if (!item) return;
+
+  // Mostrar loading na célula
+  event.target.closest('label').innerHTML = '⏳';
+
+  try {
+    // Upload para Supabase Storage via Edge Function
+    const arrayBuffer = await file.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+    const r = await fetch(PROXY, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-action': 'upload-pdf' },
+      body: JSON.stringify({ id, filename: file.name, base64 })
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const { url } = await r.json();
+
+    // Salvar URL na notificação
+    item.pdfUrl = url;
+    await supa.upsert(item);
+    renderTabela();
+  } catch(e) {
+    alert('Erro ao anexar PDF: ' + e.message);
+    renderTabela();
+  }
+}
   document.getElementById('tbody').innerHTML = `<tr><td colspan="13" style="text-align:center;padding:40px;color:var(--text3)">⏳ Carregando...</td></tr>`;
   try {
     dados = await supa.get();
@@ -949,29 +1046,37 @@ function renderTabela() {
 
   tbody.innerHTML = lista.map(d => `
     <tr>
-      <td><div class="numero">${d.numero||'—'}</div></td>
-      <td>
+      <td data-label="Nº Processo"><div class="numero">${d.numero||'—'}</div></td>
+      <td data-label="Empresa">
         <div class="empresa">${d.empresa||'—'}</div>
         <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${d.cnpj||''}</div>
       </td>
-      <td>
+      <td data-label="Esfera">
         ${esferaHtml(d.esfera)}
         ${d.orgao ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">${d.orgao}</div>` : ''}
       </td>
-      <td>
+      <td data-label="Tipo">
         <div style="font-weight:600;font-size:13px">${d.tipo||'—'}</div>
         <div class="descricao">${d.descricao||''}</div>
       </td>
-      <td><span class="prazo-normal">${fmtData(d.dataNotificacao)}</span></td>
-      <td>${d.dataCiencia ? `<span class="prazo-normal">${fmtData(d.dataCiencia)}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
-      <td>${fmtPeriodo(d.periodoIni, d.periodoFim)}</td>
-      <td>${prazoHtml(d)}</td>
-      <td>${d.prazoProrrogado ? `<span class="prazo-normal" style="color:var(--municipal)">${fmtData(d.prazoProrrogado)}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
-      <td>${d.ecac ? '<span class="ecac-tag">e-CAC</span>' : '<span style="color:var(--text3);font-size:12px">—</span>'}</td>
-      <td>${statusHtml(d._status)}</td>
-      <td>${d.dataAtendimento ? `<span class="prazo-ok">${fmtData(d.dataAtendimento)}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
-      <td><span class="acao">${d.acao||'—'}</span>${d.responsavel?`<div style="font-size:11px;color:var(--text3)">${d.responsavel}</div>`:''}</td>
-      <td>
+      <td data-label="Notificado em"><span class="prazo-normal">${fmtData(d.dataNotificacao)}</span></td>
+      <td data-label="Ciência em">${d.dataCiencia ? `<span class="prazo-normal">${fmtData(d.dataCiencia)}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
+      <td data-label="Período">${fmtPeriodo(d.periodoIni, d.periodoFim)}</td>
+      <td data-label="Prazo">${prazoHtml(d)}</td>
+      <td data-label="Prorrogado">${d.prazoProrrogado ? `<span class="prazo-normal" style="color:var(--municipal)">${fmtData(d.prazoProrrogado)}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
+      <td data-label="e-CAC">${d.ecac ? '<span class="ecac-tag">e-CAC</span>' : '<span style="color:var(--text3);font-size:12px">—</span>'}</td>
+      <td data-label="Status">${statusHtml(d._status)}</td>
+      <td data-label="Atendido em">${d.dataAtendimento ? `<span class="prazo-ok">${fmtData(d.dataAtendimento)}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
+      <td data-label="Ação"><span class="acao">${d.acao||'—'}</span>${d.responsavel?`<div style="font-size:11px;color:var(--text3)">${d.responsavel}</div>`:''}</td>
+      <td data-label="PDF">
+        ${d.pdfUrl
+          ? `<a href="${d.pdfUrl}" target="_blank" title="Abrir PDF" style="display:inline-flex;align-items:center;gap:5px;color:var(--accent2);font-size:13px;text-decoration:none;font-weight:600">📎 Ver PDF</a>`
+          : `<label title="Anexar PDF" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;color:var(--text2);font-size:12px;border:1px dashed var(--border);border-radius:6px;padding:4px 8px;transition:all .2s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">
+               📤 Anexar<input type="file" accept=".pdf" style="display:none" onchange="uploadPdf(event,'${d.id}')">
+             </label>`
+        }
+      </td>
+      <td data-label="">
         <div class="actions-cell">
           <button class="btn btn-outline btn-sm" onclick="editarItem('${d.id}')" title="Editar">✏</button>
           <button class="btn btn-outline btn-sm" onclick="verHist('${d.id}')" title="Histórico">🕐</button>
