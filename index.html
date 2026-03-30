@@ -895,6 +895,8 @@ async function uploadPdf(event, id) {
     renderTabela();
   }
 }
+
+async function carregarDados() {
   document.getElementById('tbody').innerHTML = `<tr><td colspan="13" style="text-align:center;padding:40px;color:var(--text3)">⏳ Carregando...</td></tr>`;
   try {
     dados = await supa.get();
