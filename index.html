@@ -558,6 +558,7 @@
           <th onclick="ordenar('esfera')">Esfera</th>
           <th onclick="ordenar('tipo')">Tipo / Assunto</th>
           <th onclick="ordenar('dataNotificacao')">Notificado em ↕</th>
+          <th onclick="ordenar('dataCiencia')">Ciência em ↕</th>
           <th>Período Fiscalizado</th>
           <th onclick="ordenar('prazo')">Prazo ↕</th>
           <th>Prazo Prorrogado</th>
@@ -633,8 +634,12 @@
       </div>
 
       <div class="form-group">
-        <label>Data da Notificação</label>
+        <label>Data da Notificação / Envio</label>
         <input type="date" id="f_dataNotificacao">
+      </div>
+      <div class="form-group">
+        <label>Data de Ciência</label>
+        <input type="date" id="f_dataCiencia">
       </div>
       <div class="form-group">
         <label>Data do Prazo Original</label>
@@ -886,6 +891,7 @@ function renderTabela() {
         <div class="descricao">${d.descricao||''}</div>
       </td>
       <td><span class="prazo-normal">${fmtData(d.dataNotificacao)}</span></td>
+      <td>${d.dataCiencia ? `<span class="prazo-normal">${fmtData(d.dataCiencia)}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
       <td>${fmtPeriodo(d.periodoIni, d.periodoFim)}</td>
       <td>${prazoHtml(d)}</td>
       <td>${d.prazoProrrogado ? `<span class="prazo-normal" style="color:var(--municipal)">${fmtData(d.prazoProrrogado)}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
@@ -917,7 +923,7 @@ function abrirModal(id) {
   const item = id ? dados.find(d => d.id === id) : null;
   document.getElementById('modalTitulo').textContent = id ? 'Editar Notificação' : 'Nova Notificação';
 
-  const campos = ['numero','cnpj','empresa','esfera','orgao','tipo','descricao','dataNotificacao','prazo','prazoProrrogado','dataAtendimento','periodoIni','periodoFim','status','acao','responsavel','valor','protocolo'];
+  const campos = ['numero','cnpj','empresa','esfera','orgao','tipo','descricao','dataNotificacao','dataCiencia','prazo','prazoProrrogado','dataAtendimento','periodoIni','periodoFim','status','acao','responsavel','valor','protocolo'];
   campos.forEach(c => {
     const el = document.getElementById('f_'+c);
     if (el) el.value = item ? (item[c]||'') : (c==='status'?'Aberto':'');
@@ -952,6 +958,7 @@ function salvar() {
     tipo: get('tipo'),
     descricao: get('descricao'),
     dataNotificacao: get('dataNotificacao'),
+    dataCiencia: get('dataCiencia'),
     prazo: get('prazo'),
     prazoProrrogado: get('prazoProrrogado'),
     dataAtendimento: get('dataAtendimento'),
@@ -1033,10 +1040,10 @@ function adicionarAcao() {
 
 function exportarCSV() {
   const lista = getFiltrados();
-  const header = ['Nº Processo','CNPJ','Empresa','Esfera','Órgão','Tipo','Descrição','Data Notificação','Prazo Original','Prazo Prorrogado','Data Atendimento','e-CAC','Status','Ação','Responsável','Valor','Protocolo'];
+  const header = ['Nº Processo','CNPJ','Empresa','Esfera','Órgão','Tipo','Descrição','Data Notificação','Data Ciência','Prazo Original','Prazo Prorrogado','Data Atendimento','e-CAC','Status','Ação','Responsável','Valor','Protocolo'];
   const rows = lista.map(d => [
     d.numero,d.cnpj,d.empresa,d.esfera,d.orgao,d.tipo,d.descricao,
-    fmtData(d.dataNotificacao),fmtData(d.prazo),fmtData(d.prazoProrrogado),fmtData(d.dataAtendimento),
+    fmtData(d.dataNotificacao),fmtData(d.dataCiencia),fmtData(d.prazo),fmtData(d.prazoProrrogado),fmtData(d.dataAtendimento),
     d.ecac?'Sim':'Não',getStatusCalc(d),d.acao,d.responsavel,d.valor,d.protocolo
   ].map(v => `"${(v||'').replace(/"/g,'""')}"`));
 
@@ -1084,19 +1091,25 @@ Exemplos:
 - "15/03/2025" → "2025-03-15"
 Meses: janeiro=01, fevereiro=02, março=03, abril=04, maio=05, junho=06, julho=07, agosto=08, setembro=09, outubro=10, novembro=11, dezembro=12
 
+ATENÇÃO ESPECIAL PARA dataNotificacao:
+- Use a data de EMISSÃO ou ENVIO do documento (ex: "Porto Velho, 01 de dezembro de 2025", "DATA ENVIO:", "Data de emissão:")
+- NÃO use "DATA CIÊNCIA", "DATA DE CIÊNCIA" ou "data de recebimento" — essa é a data que o contribuinte foi notificado, não a data do documento
+- NÃO use a data do prazo ou vencimento
+
 Retorne SOMENTE este JSON (sem texto antes ou depois):
 {
-  "numero": "número do processo, auto de infração ou protocolo",
+  "numero": "número do processo, auto de infração, notificação ou protocolo",
   "cnpj": "CNPJ ou CPF com formatação (ex: 00.000.000/0000-00)",
   "empresa": "nome da empresa ou contribuinte",
   "esfera": "Federal, Estadual ou Municipal",
-  "orgao": "órgão emissor (ex: Receita Federal, SEFAZ-RO, Prefeitura)",
-  "tipo": "tipo da notificação (ex: Auto de Infração, Intimação, DEFIT)",
+  "orgao": "órgão emissor (ex: Receita Federal, SEFAZ-RO, GITEC, Prefeitura)",
+  "tipo": "tipo da notificação (ex: Auto de Infração, Intimação, DEFIT, Notificação)",
   "descricao": "resumo em 1-2 frases do motivo",
-  "dataNotificacao": "data de emissão em YYYY-MM-DD",
+  "dataNotificacao": "data de EMISSÃO/ENVIO do documento em YYYY-MM-DD (ex: 'Porto Velho, 01 de dezembro de 2025' ou 'DATA ENVIO:')",
+  "dataCiencia": "DATA CIÊNCIA ou data de recebimento/leitura pelo contribuinte em YYYY-MM-DD",
   "prazo": "prazo final para resposta em YYYY-MM-DD",
   "valor": "valor autuado em reais ex: 15.000,00",
-  "ecac": true ou false,
+  "ecac": true se mencionar e-CAC, DET, DTE ou Domicílio Eletrônico, senão false,
   "acao": "ação recomendada"
 }
 
@@ -1173,7 +1186,8 @@ function preencherCampos(data) {
   const map = {
     numero: 'f_numero', cnpj: 'f_cnpj', empresa: 'f_empresa',
     orgao: 'f_orgao', tipo: 'f_tipo', descricao: 'f_descricao',
-    dataNotificacao: 'f_dataNotificacao', prazo: 'f_prazo', valor: 'f_valor', acao: 'f_acao'
+    dataNotificacao: 'f_dataNotificacao', dataCiencia: 'f_dataCiencia',
+    prazo: 'f_prazo', valor: 'f_valor', acao: 'f_acao'
   };
 
   Object.entries(map).forEach(([key, elId]) => {
