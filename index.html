@@ -1134,13 +1134,13 @@ async function salvar() {
   // Verificar duplicidade
   if (!editandoId) {
     const duplicado = dados.find(d => {
-      const mesmoNumero = numero && d.numero && d.numero.toLowerCase() === numero.toLowerCase();
-      const mesmoCnpjTipo = cnpj && d.cnpj && d.cnpj === cnpj && get('tipo') && d.tipo === get('tipo') && get('dataNotificacao') && d.dataNotificacao === get('dataNotificacao');
-      return mesmoNumero || mesmoCnpjTipo;
+      const mesmoNumero = numero && d.numero && d.numero.trim().toLowerCase() === numero.trim().toLowerCase();
+      const mesmoCnpj = cnpj && d.cnpj && d.cnpj.replace(/\D/g,'') === cnpj.replace(/\D/g,'');
+      return mesmoNumero && mesmoCnpj;
     });
     if (duplicado) {
-      const confirmar = confirm(`⚠️ Possível duplicidade detectada!\n\nJá existe uma notificação com dados similares:\n• ${duplicado.empresa||'—'}\n• ${duplicado.numero||'—'}\n• ${duplicado.tipo||'—'}\n\nDeseja cadastrar mesmo assim?`);
-      if (!confirmar) return;
+      alert(`🚫 Notificação duplicada!\n\nJá existe um registro com o mesmo Nº de Processo e CNPJ:\n• Empresa: ${duplicado.empresa||'—'}\n• Nº Processo: ${duplicado.numero||'—'}\n• CNPJ: ${duplicado.cnpj||'—'}\n\nEdite o registro existente se precisar atualizar.`);
+      return;
     }
   }
   const item = {
