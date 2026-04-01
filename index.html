@@ -423,9 +423,38 @@
 
   .actions-cell { display: flex; gap: 5px; }
 
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  /* Scrollbar mais visível */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--surface2); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb { background: var(--text3); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+
+  /* Scroll buttons nas laterais da tabela */
+  .table-container { position: relative; }
+  .scroll-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 32px; height: 32px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,.4);
+    transition: all .2s;
+    opacity: 0.85;
+  }
+  .scroll-btn:hover { opacity: 1; transform: translateY(-50%) scale(1.1); }
+  .scroll-btn.left { left: -16px; }
+  .scroll-btn.right { right: -16px; }
+
+  /* Linha clicável */
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover td { background: rgba(79,124,255,.08); }
 
   /* PDF UPLOAD */
   .pdf-drop-zone {
@@ -616,7 +645,10 @@
   </div>
 
   <!-- TABELA -->
-  <div class="table-wrap">
+  <div class="table-container">
+    <button class="scroll-btn left" onclick="scrollTabela(-300)" title="Rolar para esquerda">‹</button>
+    <button class="scroll-btn right" onclick="scrollTabela(300)" title="Rolar para direita">›</button>
+    <div class="table-wrap" id="tableWrap">
     <table>
       <thead>
         <tr>
@@ -643,6 +675,7 @@
       <div class="icon">📋</div>
       <p>Nenhuma notificação encontrada.</p>
     </div>
+  </div>
   </div>
 </main>
 
@@ -877,7 +910,13 @@ async function uploadPdf(event, id) {
   try {
     // Upload para Supabase Storage via Edge Function
     const arrayBuffer = await file.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const bytes = new Uint8Array(arrayBuffer);
+    let base64 = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      base64 += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    base64 = btoa(base64);
 
     const r = await fetch(PROXY, {
       method: 'POST',
@@ -937,6 +976,11 @@ function fmtPeriodo(ini, fim) {
   if (ini && fim) return `<span style="font-family:var(--mono);font-size:12px">${fmt(ini)} → ${fmt(fim)}</span>`;
   if (ini) return `<span style="font-family:var(--mono);font-size:12px">a partir de ${fmt(ini)}</span>`;
   return `<span style="font-family:var(--mono);font-size:12px">até ${fmt(fim)}</span>`;
+}
+
+function scrollTabela(px) {
+  const wrap = document.getElementById('tableWrap');
+  if (wrap) wrap.scrollBy({ left: px, behavior: 'smooth' });
 }
 
 function toggleClearBtn() {
@@ -1048,7 +1092,7 @@ function renderTabela() {
   empty.style.display = 'none';
 
   tbody.innerHTML = lista.map(d => `
-    <tr>
+    <tr class="clickable" onclick="editarItem('${d.id}')">
       <td data-label="Nº Processo"><div class="numero">${d.numero||'—'}</div></td>
       <td data-label="Empresa">
         <div class="empresa">${d.empresa||'—'}</div>
@@ -1071,7 +1115,7 @@ function renderTabela() {
       <td data-label="Status">${statusHtml(d._status)}</td>
       <td data-label="Atendido em">${d.dataAtendimento ? `<span class="prazo-ok">${fmtData(d.dataAtendimento)}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
       <td data-label="Ação"><span class="acao">${d.acao||'—'}</span>${d.responsavel?`<div style="font-size:11px;color:var(--text3)">${d.responsavel}</div>`:''}</td>
-      <td data-label="PDF">
+      <td data-label="PDF" onclick="event.stopPropagation()">
         ${d.pdfUrl
           ? `<a href="${d.pdfUrl}" target="_blank" title="Abrir PDF" style="display:inline-flex;align-items:center;gap:5px;color:var(--accent2);font-size:13px;text-decoration:none;font-weight:600">📎 Ver PDF</a>`
           : `<label title="Anexar PDF" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;color:var(--text2);font-size:12px;border:1px dashed var(--border);border-radius:6px;padding:4px 8px;transition:all .2s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">
@@ -1079,7 +1123,7 @@ function renderTabela() {
              </label>`
         }
       </td>
-      <td data-label="">
+      <td data-label="" onclick="event.stopPropagation()">
         <div class="actions-cell">
           <button class="btn btn-outline btn-sm" onclick="editarItem('${d.id}')" title="Editar">✏</button>
           <button class="btn btn-outline btn-sm" onclick="verHist('${d.id}')" title="Histórico">🕐</button>
