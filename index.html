@@ -604,9 +604,9 @@
       padding: 0;
     }
     td:nth-child(14)::before { display:none; }
-    td:nth-child(7),
     td:nth-child(9),
-    td:nth-child(12) { display: none; }
+    td:nth-child(11),
+    td:nth-child(14) { display: none; }
   }
 
   @media (max-width: 480px) {
@@ -673,6 +673,8 @@
       <table>
       <thead>
         <tr>
+          <th>PDF</th>
+          <th style="min-width:100px">Ações</th>
           <th onclick="ordenar('numero')">Nº Processo ↕</th>
           <th onclick="ordenar('empresa')">Empresa ↕</th>
           <th onclick="ordenar('esfera')">Esfera</th>
@@ -686,8 +688,6 @@
           <th onclick="ordenar('status')">Status ↕</th>
           <th onclick="ordenar('dataAtendimento')">Atendido em ↕</th>
           <th>Ação Necessária</th>
-          <th>PDF</th>
-          <th style="min-width:100px">Ações</th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
@@ -1152,6 +1152,21 @@ function renderTabela() {
 
   tbody.innerHTML = lista.map(d => `
     <tr class="clickable" onclick="editarItem('${d.id}')">
+      <td data-label="PDF" onclick="event.stopPropagation()">
+        ${d.pdfUrl
+          ? `<a href="${d.pdfUrl}" target="_blank" title="Abrir PDF" style="display:inline-flex;align-items:center;gap:5px;color:var(--accent2);font-size:13px;text-decoration:none;font-weight:600">📎 Ver PDF</a>`
+          : `<label title="Anexar PDF" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;color:var(--text2);font-size:12px;border:1px dashed var(--border);border-radius:6px;padding:4px 8px;transition:all .2s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">
+               📤 Anexar<input type="file" accept=".pdf" style="display:none" onchange="uploadPdf(event,'${d.id}')">
+             </label>`
+        }
+      </td>
+      <td data-label="" onclick="event.stopPropagation()">
+        <div class="actions-cell">
+          <button class="btn btn-outline btn-sm" onclick="editarItem('${d.id}')" title="Editar">✏</button>
+          <button class="btn btn-outline btn-sm" onclick="verHist('${d.id}')" title="Histórico">🕐</button>
+          <button class="btn btn-danger btn-sm" onclick="excluir('${d.id}')" title="Excluir">✕</button>
+        </div>
+      </td>
       <td data-label="Nº Processo"><div class="numero">${d.numero||'—'}</div></td>
       <td data-label="Empresa">
         <div class="empresa">${d.empresa||'—'}</div>
@@ -1174,21 +1189,6 @@ function renderTabela() {
       <td data-label="Status">${statusHtml(d._status)}</td>
       <td data-label="Atendido em">${d.dataAtendimento ? `<span class="prazo-ok">${fmtData(d.dataAtendimento)}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
       <td data-label="Ação"><span class="acao">${d.acao||'—'}</span>${d.responsavel?`<div style="font-size:11px;color:var(--text3)">${d.responsavel}</div>`:''}</td>
-      <td data-label="PDF" onclick="event.stopPropagation()">
-        ${d.pdfUrl
-          ? `<a href="${d.pdfUrl}" target="_blank" title="Abrir PDF" style="display:inline-flex;align-items:center;gap:5px;color:var(--accent2);font-size:13px;text-decoration:none;font-weight:600">📎 Ver PDF</a>`
-          : `<label title="Anexar PDF" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;color:var(--text2);font-size:12px;border:1px dashed var(--border);border-radius:6px;padding:4px 8px;transition:all .2s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">
-               📤 Anexar<input type="file" accept=".pdf" style="display:none" onchange="uploadPdf(event,'${d.id}')">
-             </label>`
-        }
-      </td>
-      <td data-label="" onclick="event.stopPropagation()">
-        <div class="actions-cell">
-          <button class="btn btn-outline btn-sm" onclick="editarItem('${d.id}')" title="Editar">✏</button>
-          <button class="btn btn-outline btn-sm" onclick="verHist('${d.id}')" title="Histórico">🕐</button>
-          <button class="btn btn-danger btn-sm" onclick="excluir('${d.id}')" title="Excluir">✕</button>
-        </div>
-      </td>
     </tr>
   `).join('');
 
