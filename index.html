@@ -429,8 +429,29 @@
   ::-webkit-scrollbar-thumb { background: var(--text3); border-radius: 4px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--text2); }
 
-  /* Scroll buttons nas laterais da tabela */
+  /* Scroll sticky na tabela */
   .table-container { position: relative; }
+  .table-sticky-scroll {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 12px;
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+    border-radius: 0 0 12px 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    z-index: 20;
+    cursor: pointer;
+  }
+  .table-sticky-scroll::-webkit-scrollbar { height: 12px; }
+  .table-sticky-scroll::-webkit-scrollbar-track { background: var(--surface2); border-radius: 6px; }
+  .table-sticky-scroll::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 6px; border: 2px solid var(--surface2); }
+  .table-sticky-scroll::-webkit-scrollbar-thumb:hover { background: var(--accent2); }
+  .table-sticky-scroll-inner { height: 1px; }
+
+  /* Scroll buttons nas laterais da tabela */
   .scroll-btn {
     position: absolute;
     top: 50%;
@@ -649,7 +670,7 @@
     <button class="scroll-btn left" onclick="scrollTabela(-300)" title="Rolar para esquerda">‹</button>
     <button class="scroll-btn right" onclick="scrollTabela(300)" title="Rolar para direita">›</button>
     <div class="table-wrap" id="tableWrap">
-    <table>
+      <table>
       <thead>
         <tr>
           <th onclick="ordenar('numero')">Nº Processo ↕</th>
@@ -674,6 +695,10 @@
     <div id="emptyState" class="empty-state" style="display:none">
       <div class="icon">📋</div>
       <p>Nenhuma notificação encontrada.</p>
+    </div>
+    <!-- Barra de scroll sticky que acompanha a tela -->
+    <div class="table-sticky-scroll" id="stickyScroll">
+      <div class="table-sticky-scroll-inner" id="stickyScrollInner"></div>
     </div>
   </div>
   </div>
@@ -983,6 +1008,40 @@ function scrollTabela(px) {
   if (wrap) wrap.scrollBy({ left: px, behavior: 'smooth' });
 }
 
+// Sincronizar barra de scroll sticky com a tabela
+function initStickyScroll() {
+  const wrap = document.getElementById('tableWrap');
+  const sticky = document.getElementById('stickyScroll');
+  const inner = document.getElementById('stickyScrollInner');
+  if (!wrap || !sticky || !inner) return;
+
+  // Ajusta largura interna para coincidir com scroll da tabela
+  function updateWidth() {
+    inner.style.width = wrap.scrollWidth + 'px';
+  }
+  updateWidth();
+
+  // Sincroniza scroll
+  let syncingFromSticky = false, syncingFromWrap = false;
+  sticky.addEventListener('scroll', () => {
+    if (syncingFromWrap) return;
+    syncingFromSticky = true;
+    wrap.scrollLeft = sticky.scrollLeft;
+    setTimeout(() => syncingFromSticky = false, 50);
+  });
+  wrap.addEventListener('scroll', () => {
+    if (syncingFromSticky) return;
+    syncingFromWrap = true;
+    sticky.scrollLeft = wrap.scrollLeft;
+    setTimeout(() => syncingFromWrap = false, 50);
+    updateWidth();
+  });
+
+  // Atualiza ao redimensionar
+  window.addEventListener('resize', updateWidth);
+  new ResizeObserver(updateWidth).observe(wrap);
+}
+
 function toggleClearBtn() {
   const val = document.getElementById('busca').value;
   document.getElementById('btnLimparBusca').style.display = val ? 'block' : 'none';
@@ -1134,6 +1193,7 @@ function renderTabela() {
   `).join('');
 
   renderStats();
+  initStickyScroll();
 }
 
 function ordenar(field) {
