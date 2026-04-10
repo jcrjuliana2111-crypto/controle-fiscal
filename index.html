@@ -1369,12 +1369,21 @@ async function handlePdfUpload(file) {
   mostrarPdfStatus('loading', `📄 Extraindo texto do PDF...`);
 
   try {
-    const texto = await extrairTextoPdf(file);
+    let texto = await extrairTextoPdf(file);
+    let usouVisao = false;
+
+    // PDF escaneado (sem texto) — usa visão do Claude
     if (!texto || texto.trim().length < 30) {
-      throw new Error('PDF sem texto legível. Tente um PDF não escaneado.');
+      mostrarPdfStatus('loading', `🔍 PDF escaneado — analisando imagem com IA...`);
+      texto = await extrairTextoViaVisao(file);
+      usouVisao = true;
     }
 
-    mostrarPdfStatus('loading', `🤖 Identificando dados com IA...`);
+    if (!texto || texto.trim().length < 10) {
+      throw new Error('Não foi possível extrair dados deste PDF.');
+    }
+
+    mostrarPdfStatus('loading', `🤖 Identificando dados fiscais com IA...`);
 
     const prompt = `Você é especialista em documentos fiscais brasileiros. Analise o texto abaixo e extraia os dados, retornando APENAS JSON válido, sem markdown, sem explicação.
 
@@ -1385,11 +1394,11 @@ Exemplos:
 Meses: janeiro=01, fevereiro=02, março=03, abril=04, maio=05, junho=06, julho=07, agosto=08, setembro=09, outubro=10, novembro=11, dezembro=12
 
 ATENÇÃO ESPECIAL PARA dataNotificacao:
-- Use a data de EMISSÃO ou ENVIO do documento (ex: "Porto Velho, 01 de dezembro de 2025", "DATA ENVIO:", "Data de emissão:")
-- NÃO use "DATA CIÊNCIA", "DATA DE CIÊNCIA" ou "data de recebimento" — essa é a data que o contribuinte foi notificado, não a data do documento
+- Use a data de EMISSÃO ou ENVIO do documento
+- NÃO use "DATA CIÊNCIA" — essa vai no campo dataCiencia
 - NÃO use a data do prazo ou vencimento
 
-Retorne SOMENTE este JSON (sem texto antes ou depois):
+Retorne SOMENTE este JSON:
 {
   "numero": "número do processo, auto de infração, notificação ou protocolo",
   "cnpj": "CNPJ ou CPF com formatação (ex: 00.000.000/0000-00)",
@@ -1398,8 +1407,8 @@ Retorne SOMENTE este JSON (sem texto antes ou depois):
   "orgao": "órgão emissor (ex: Receita Federal, SEFAZ-RO, GITEC, Prefeitura)",
   "tipo": "tipo da notificação (ex: Auto de Infração, Intimação, DEFIT, Notificação)",
   "descricao": "resumo em 1-2 frases do motivo",
-  "dataNotificacao": "data de EMISSÃO/ENVIO do documento em YYYY-MM-DD (ex: 'Porto Velho, 01 de dezembro de 2025' ou 'DATA ENVIO:')",
-  "dataCiencia": "DATA CIÊNCIA ou data de recebimento/leitura pelo contribuinte em YYYY-MM-DD",
+  "dataNotificacao": "data de EMISSÃO/ENVIO em YYYY-MM-DD",
+  "dataCiencia": "DATA CIÊNCIA em YYYY-MM-DD",
   "prazo": "prazo final para resposta em YYYY-MM-DD",
   "valor": "valor autuado em reais ex: 15.000,00",
   "ecac": true se mencionar e-CAC, DET, DTE ou Domicílio Eletrônico, senão false,
@@ -1421,14 +1430,13 @@ ${texto.slice(0, 8000)}`;
 
     if (!response.ok) throw new Error(`Erro na API: ${response.status}`);
     const data = await response.json();
-    console.log('Resposta API:', JSON.stringify(data));
     if (!data || !data.content) throw new Error(`Resposta inesperada: ${JSON.stringify(data)}`);
     const rawText = data.content.map(b => b.text || '').join('').trim();
     const clean = rawText.replace(/```json|```/gi, '').trim();
     const extracted = JSON.parse(clean);
 
     preencherCampos(extracted);
-    mostrarPdfStatus('success', `✓ Dados extraídos! Revise os campos antes de salvar.`);
+    mostrarPdfStatus('success', `✓ Dados extraídos${usouVisao ? ' (via análise de imagem)' : ''}! Revise os campos antes de salvar.`);
 
   } catch (err) {
     console.error(err);
@@ -1436,6 +1444,45 @@ ${texto.slice(0, 8000)}`;
   }
 
   document.getElementById('pdfInput').value = '';
+}
+
+// Extrai texto de PDF escaneado enviando para Claude via visão
+async function extrairTextoViaVisao(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  let base64 = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    base64 += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  base64 = btoa(base64);
+
+  const response = await fetch(PROXY, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-action': 'claude' },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2000,
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'document',
+            source: { type: 'base64', media_type: 'application/pdf', data: base64 }
+          },
+          {
+            type: 'text',
+            text: 'Extraia TODO o texto visível neste documento fiscal brasileiro. Transcreva fielmente todos os dados: números de processo, CNPJ, nome da empresa, datas, valores, órgão emissor, tipo de notificação, prazo. Retorne apenas o texto extraído, sem formatação adicional.'
+          }
+        ]
+      }]
+    })
+  });
+
+  if (!response.ok) throw new Error(`Erro na API de visão: ${response.status}`);
+  const data = await response.json();
+  if (!data || !data.content) throw new Error('Sem resposta da API de visão');
+  return data.content.map(b => b.text || '').join('').trim();
 }
 
 // Extrai texto do PDF localmente usando PDF.js
