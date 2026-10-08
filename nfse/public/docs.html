@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API — %APP_NAME%</title>
+<link rel="icon" href="/assets/marca.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/base.css">
+<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/assets/docs.css">
+</head>
+<body>
+<header class="topo">
+  <a class="marca" href="/"><img src="/assets/marca.svg" alt="" width="28" height="28">%APP_NAME%</a>
+  <div class="topo-acoes"><a class="btn btn-texto" href="/entrar.html">Entrar</a><a class="btn btn-primario" href="/entrar.html#cadastro">Testar grátis</a></div>
+</header>
+<main class="docs">
+  <nav class="docs-indice" aria-label="Nesta página">
+    <a href="#autenticacao">Autenticação</a><a href="#emitir">Emitir nota</a><a href="#consultar">Consultar e listar</a>
+    <a href="#cancelar">Cancelar</a><a href="#documentos">XML e DANFSe</a><a href="#webhooks">Avisos (webhooks)</a><a href="#erros">Erros</a>
+  </nav>
+  <article>
+    <h1>API de emissão de NFS-e</h1>
+    <p>API REST em JSON. Endereço base: <code>%APP_URL%/api/v1</code>. Disponível a partir do plano Profissional.</p>
+
+    <h2 id="autenticacao">Autenticação</h2>
+    <p>Crie uma chave em <b>Integrações</b> e envie no cabeçalho de todas as chamadas. A chave tem o perfil escolhido na criação (emitir e consultar, só consultar ou tudo).</p>
+    <pre><code>Authorization: Bearer nfk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</code></pre>
+    <p>Limite: 600 requisições por minuto por conta. Acima disso a resposta é <code>429</code>.</p>
+
+    <h2 id="emitir">Emitir nota</h2>
+    <p><code>POST /notas</code>. Use o cabeçalho <code>Idempotency-Key</code> com um identificador único do seu lado (por exemplo, o número do pedido): se a mesma chave for enviada de novo, devolvemos a nota já criada em vez de emitir outra.</p>
+    <pre><code>curl -X POST %APP_URL%/api/v1/notas \
+  -H "Authorization: Bearer $CHAVE" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: pedido-10457" \
+  -d '{
+    "prestadorId": "UUID da empresa emitente",
+    "competencia": "2026-10-01",
+    "referenciaExterna": "pedido-10457",
+    "tomador": {
+      "tipo": "PJ",
+      "documento": "12.ABC.345/01DE-35",
+      "nome": "Cliente Exemplo Ltda",
+      "email": "financeiro@cliente.com.br"
+    },
+    "servico": {
+      "itemListaServico": "17.19",
+      "codigoTributacaoNacional": "171901",
+      "discriminacao": "Honorários contábeis de setembro/2026"
+    },
+    "valores": { "servico": 1850.00, "aliquotaIss": 2, "issRetido": false }
+  }'</code></pre>
+    <p>A resposta traz a nota com <code>status</code>:</p>
+    <table class="tabela-docs">
+      <tr><th><code>autorizada</code></th><td>Emitida. Tem <code>numero</code> e <code>chaveAcesso</code> (Portal Nacional) ou <code>codigoVerificacao</code> (prefeituras).</td></tr>
+      <tr><th><code>rejeitada</code></th><td>O fisco recusou. Veja <code>mensagens</code>; corrija e envie com outra <code>Idempotency-Key</code>.</td></tr>
+      <tr><th><code>processando</code></th><td>Sem resposta definitiva (fisco fora do ar). Consulte depois, não reenvie.</td></tr>
+      <tr><th><code>validada</code></th><td>Só São Paulo em homologação: mensagem validada, nenhuma nota gerada.</td></tr>
+    </table>
+    <p>Campos de <code>tomador.tipo</code>: <code>PJ</code>, <code>PF</code>, <code>EXT</code> (exterior, informe <code>nif</code>) e <code>NI</code> (não identificado). Em <code>valores</code> também são aceitos <code>deducoes</code>, <code>descontoIncondicionado</code>, <code>descontoCondicionado</code>, <code>pis</code>, <code>cofins</code>, <code>inss</code>, <code>ir</code>, <code>csll</code>, <code>outrasRetencoes</code> e <code>pisCofinsRetido</code>. Para IBS/CBS, envie <code>ibsCbs</code> com <code>cClassTrib</code>, <code>cIndOp</code>, <code>finNFSe</code> e <code>indDest</code>.</p>
+    <p>Para obter o <code>prestadorId</code>: <code>GET /prestadores</code>.</p>
+
+    <h2 id="consultar">Consultar e listar</h2>
+    <ul>
+      <li><code>GET /notas/{id}</code>: dados da nota.</li>
+      <li><code>POST /notas/{id}/consultar</code>: atualiza a situação junto ao fisco (use para notas em <code>processando</code>).</li>
+      <li><code>GET /notas?status=autorizada&amp;de=2026-10-01&amp;ate=2026-10-31&amp;busca=cliente&amp;pagina=1&amp;porPagina=50</code>: lista paginada com <code>itens</code> e <code>total</code>.</li>
+      <li><code>POST /calcular</code>: calcula ISS, retenções e valor líquido sem emitir.</li>
+    </ul>
+
+    <h2 id="cancelar">Cancelar</h2>
+    <pre><code>POST /notas/{id}/cancelar
+{ "codigo": 1, "motivo": "Valor do serviço informado incorretamente" }</code></pre>
+    <p>Códigos: 1 erro na emissão, 2 serviço não prestado, 9 outros. A justificativa precisa de 15 a 255 caracteres.</p>
+
+    <h2 id="documentos">XML e DANFSe</h2>
+    <ul>
+      <li><code>GET /notas/{id}/xml</code>: XML autorizado. <code>?tipo=envio</code> devolve o XML assinado que enviamos.</li>
+      <li><code>GET /notas/{id}/danfse</code>: PDF oficial do Portal Nacional ou página para impressão nas prefeituras.</li>
+    </ul>
+
+    <h2 id="webhooks">Avisos (webhooks)</h2>
+    <p>Cadastre um endereço em <b>Integrações</b>. Enviamos um <code>POST</code> com JSON quando a nota muda de situação: <code>nota.autorizada</code>, <code>nota.rejeitada</code>, <code>nota.cancelada</code> e <code>nota.processando</code>.</p>
+    <pre><code>{ "evento": "nota.autorizada", "criadoEm": "2026-10-10T17:32:05Z", "dados": { "id": "…", "status": "autorizada", "numero": "418", … } }</code></pre>
+    <p>Valide a origem pelo cabeçalho <code>X-Assinatura: t=&lt;unix&gt;,v1=&lt;hex&gt;</code>, um HMAC-SHA256 de <code>"&lt;t&gt;.&lt;corpo&gt;"</code> com o segredo mostrado ao criar o aviso:</p>
+    <pre><code>// Node.js
+const [, t, v1] = req.headers['x-assinatura'].match(/t=(\d+),v1=([0-9a-f]+)/);
+const esperado = crypto.createHmac('sha256', SEGREDO).update(`${t}.${corpoBruto}`).digest('hex');
+const valido = crypto.timingSafeEqual(Buffer.from(esperado), Buffer.from(v1));</code></pre>
+    <p>Responda com status 2xx em até 10 segundos. Falhas são reenviadas em 1, 5, 30, 120, 360 e 720 minutos.</p>
+
+    <h2 id="erros">Erros</h2>
+    <p>Erros vêm como <code>{ "erro": "mensagem", "erros": [{ "campo": "...", "mensagem": "..." }] }</code>.</p>
+    <table class="tabela-docs">
+      <tr><th>401</th><td>Chave ausente, inválida ou revogada.</td></tr>
+      <tr><th>402</th><td>Limite do plano atingido ou teste encerrado.</td></tr>
+      <tr><th>403</th><td>O perfil da chave não permite a ação, ou a conta está suspensa.</td></tr>
+      <tr><th>404</th><td>Registro não encontrado nesta conta.</td></tr>
+      <tr><th>409</th><td>Conflito (por exemplo, número de RPS já usado).</td></tr>
+      <tr><th>422</th><td>Dados inválidos; veja <code>erros</code>.</td></tr>
+      <tr><th>429</th><td>Muitas requisições; aguarde e tente de novo.</td></tr>
+    </table>
+  </article>
+</main>
+<footer class="rodape"><a href="/">%APP_NAME%</a><a href="/entrar.html">Entrar</a></footer>
+</body>
+</html>

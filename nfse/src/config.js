@@ -2,15 +2,32 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const raiz = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const env = process.env;
+const producao = env.NODE_ENV === 'production';
 
 export const config = {
   raiz,
-  porta: Number(process.env.PORT || 3333),
-  host: process.env.HOST || '127.0.0.1',
-  dataDir: path.resolve(process.env.NFSE_DATA_DIR || path.join(raiz, 'data')),
-  // Chave usada para cifrar certificados e senhas em disco. Defina em produção!
-  secret: process.env.NFSE_SECRET || 'troque-esta-chave-em-producao',
-  // Token exigido no header Authorization: Bearer <token>. Vazio = sem autenticação.
-  apiToken: process.env.NFSE_API_TOKEN || '',
-  verAplic: 'ControleFiscal-1.0',
+  producao,
+  nomeApp: env.APP_NAME || 'Emissor NFS-e',
+  urlApp: (env.APP_URL || `http://127.0.0.1:${env.PORT || 3333}`).replace(/\/$/, ''),
+  porta: Number(env.PORT || 3333),
+  host: env.HOST || (producao ? '0.0.0.0' : '127.0.0.1'),
+  databaseUrl: env.DATABASE_URL || 'postgres://nfse:nfse@127.0.0.1:5432/nfse',
+  // Chave mestra (32 bytes em base64) que cifra as chaves de dados dos certificados.
+  chaveMestra: env.NFSE_MASTER_KEY || '',
+  diasTeste: Number(env.TRIAL_DAYS || 14),
+  smtp: env.SMTP_URL || '',          // ex.: smtps://usuario:senha@smtp.servidor.com:465
+  emailRemetente: env.EMAIL_FROM || 'nao-responda@localhost',
+  emailSuporte: env.SUPPORT_EMAIL || '',
+  verAplic: 'EmissorNFSe-2.0',
 };
+
+export function validarConfig() {
+  const erros = [];
+  if (producao && !config.chaveMestra) erros.push('NFSE_MASTER_KEY é obrigatória em produção.');
+  if (config.chaveMestra && Buffer.from(config.chaveMestra, 'base64').length !== 32)
+    erros.push('NFSE_MASTER_KEY deve ter 32 bytes em base64 (gere com: openssl rand -base64 32).');
+  if (producao && !config.urlApp.startsWith('https://')) erros.push('APP_URL deve usar https:// em produção.');
+  if (producao && !config.smtp) console.warn('[nfse] AVISO: SMTP_URL não configurada — e-mails de convite e senha não serão enviados.');
+  if (erros.length) throw new Error('Configuração inválida:\n- ' + erros.join('\n- '));
+}

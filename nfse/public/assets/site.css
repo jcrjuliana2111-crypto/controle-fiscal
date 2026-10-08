@@ -1,0 +1,122 @@
+.topo {
+  display: flex; align-items: center; gap: 28px; padding: 18px clamp(16px, 5vw, 64px);
+  max-width: 1240px; margin: 0 auto;
+}
+.topo-links { display: flex; gap: 22px; }
+.topo-links a { color: var(--tinta-2); text-decoration: none; font-weight: 500; font-size: 14.5px; }
+.topo-links a:hover { color: var(--tinta); }
+.topo-acoes { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+.btn-grande { padding: 14px 22px; font-size: 15.5px; }
+
+main { max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 5vw, 64px); }
+
+/* Hero */
+.hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: clamp(32px, 6vw, 80px); align-items: center; padding: clamp(32px, 7vw, 96px) 0 clamp(40px, 6vw, 72px); }
+.hero h1 { font-size: clamp(36px, 5.2vw, 62px); font-weight: 800; letter-spacing: -.035em; line-height: 1.02; max-width: 15ch; }
+.hero-sub { font-size: clamp(16.5px, 1.5vw, 19px); color: var(--tinta-2); margin-top: 22px; max-width: 54ch; }
+.hero-acoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 30px; }
+.hero-nota { margin-top: 14px; font-size: 13.5px; color: var(--tinta-3); }
+
+/* Nota de exemplo + carimbo */
+.nota-demo { position: relative; padding: 18px 26px 26px 0; }
+.nota-folha {
+  background: var(--folha); border: 1px solid var(--linha-forte); border-radius: 3px;
+  box-shadow: 0 1px 0 var(--linha), 0 24px 48px -24px rgba(20, 33, 43, .35);
+  transform: rotate(-1.2deg); font-size: 13px;
+}
+.nota-cab { display: flex; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 2px solid var(--tinta); }
+.nota-cab strong { display: block; font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+.nota-cab span { color: var(--tinta-2); font-size: 12px; }
+.nota-num { text-align: right; }
+.nota-num strong { font-size: 17px; }
+.nota-grade { display: grid; grid-template-columns: repeat(3, 1fr); }
+.nota-grade > div { padding: 9px 18px; border-bottom: 1px solid var(--linha); border-right: 1px solid var(--linha); min-width: 0; }
+.nota-grade > div:nth-child(3n), .nota-grade .g2 + div { border-right: 0; }
+.nota-grade .g2 { grid-column: span 2; }
+.nota-grade .g3 { grid-column: span 3; border-right: 0; }
+.nota-grade dt { font-size: 11px; color: var(--tinta-3); }
+.nota-grade dd { font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.nota-chave { padding: 10px 18px 14px; font-size: 11.5px; color: var(--tinta-2); word-spacing: 3px; }
+.nota-chave span { display: block; font-size: 11px; color: var(--tinta-3); word-spacing: 0; }
+
+.carimbo {
+  position: absolute; right: 0; bottom: 34px; transform: rotate(-11deg);
+  border: 3px solid var(--ok); color: var(--ok); border-radius: 8px; padding: 8px 16px 7px; text-align: center;
+  background: rgba(255, 255, 255, .72); mix-blend-mode: multiply;
+  animation: carimbar .55s cubic-bezier(.2, .9, .3, 1.25) .7s both;
+}
+.carimbo span { display: block; font-size: 26px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; line-height: 1; }
+.carimbo small { display: block; font-size: 10.5px; font-weight: 600; margin-top: 4px; }
+@keyframes carimbar {
+  0% { opacity: 0; transform: rotate(-11deg) scale(1.9); }
+  60% { opacity: 1; }
+  100% { opacity: 1; transform: rotate(-11deg) scale(1); }
+}
+
+/* Faixa dos padrões */
+.faixa-padroes { border-top: 1px solid var(--linha); border-bottom: 1px solid var(--linha); padding: 22px 0; display: flex; gap: 32px; align-items: baseline; flex-wrap: wrap; }
+.faixa-padroes p { color: var(--tinta-2); font-size: 14px; }
+.faixa-padroes ul { list-style: none; display: flex; gap: 36px; flex-wrap: wrap; }
+.faixa-padroes li { font-size: 13.5px; color: var(--tinta-2); max-width: 260px; }
+.faixa-padroes li strong { display: block; color: var(--tinta); font-size: 15px; }
+
+/* Seções */
+.secao { padding: clamp(56px, 8vw, 104px) 0 0; }
+.secao h2 { font-size: clamp(28px, 3.4vw, 40px); font-weight: 800; letter-spacing: -.03em; max-width: 22ch; }
+.secao-sub { color: var(--tinta-2); margin-top: 10px; font-size: 16.5px; }
+
+.passos { list-style: none; counter-reset: passo; display: grid; grid-template-columns: repeat(3, 1fr); gap: 36px; margin-top: 36px; }
+.passos li { counter-increment: passo; border-top: 2px solid var(--tinta); padding-top: 16px; }
+.passos li::before { content: counter(passo); display: block; font-size: 44px; font-weight: 900; color: var(--carimbo); line-height: 1; margin-bottom: 14px; }
+.passos h3 { font-size: 19px; margin-bottom: 8px; }
+.passos p { color: var(--tinta-2); max-width: 36ch; }
+
+.recursos-grade { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 36px; border-top: 1px solid var(--linha-forte); }
+.recursos-grade article { padding: 24px 28px 28px 0; border-bottom: 1px solid var(--linha); }
+.recursos-grade article:not(:nth-child(3n)) { border-right: 1px solid var(--linha); }
+.recursos-grade article:not(:nth-child(3n+1)) { padding-left: 28px; }
+.recursos-grade h3 { font-size: 17px; margin-bottom: 6px; }
+.recursos-grade p { color: var(--tinta-2); font-size: 14.5px; }
+
+/* Tabela de planos */
+.tabela-planos-wrap { margin-top: 32px; overflow-x: auto; background: var(--folha); border: 1px solid var(--linha-forte); border-radius: var(--raio-grande); }
+.tabela-planos { width: 100%; border-collapse: collapse; min-width: 720px; }
+.tabela-planos th, .tabela-planos td { padding: 14px 18px; text-align: left; border-bottom: 1px solid var(--linha); vertical-align: top; }
+.tabela-planos thead th { font-size: 17px; font-weight: 800; vertical-align: bottom; }
+.tabela-planos thead th .preco { display: block; font-size: 30px; letter-spacing: -.03em; margin-top: 6px; }
+.tabela-planos thead th .preco small { font-size: 14px; font-weight: 500; color: var(--tinta-2); letter-spacing: 0; }
+.tabela-planos tbody th { font-weight: 500; color: var(--tinta-2); width: 26%; }
+.tabela-planos tr:last-child td, .tabela-planos tr:last-child th { border-bottom: 0; }
+.tabela-planos .destaque { background: var(--carimbo-claro); }
+.tabela-planos .sim { color: var(--ok); font-weight: 600; }
+.tabela-planos .nao { color: var(--tinta-3); }
+
+.faq { max-width: 760px; }
+.faq details { border-bottom: 1px solid var(--linha); padding: 18px 0; }
+.faq details:first-of-type { margin-top: 24px; border-top: 1px solid var(--linha); }
+.faq summary { font-weight: 600; font-size: 17px; cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+.faq summary::after { content: '+'; color: var(--carimbo); font-size: 22px; line-height: 1; }
+.faq details[open] summary::after { content: '–'; }
+.faq details p { color: var(--tinta-2); margin-top: 10px; max-width: 65ch; }
+
+.chamada-final { margin: clamp(64px, 9vw, 112px) 0 0; padding: clamp(36px, 5vw, 56px); background: var(--tinta); color: #fff; border-radius: var(--raio-grande); display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap; }
+.chamada-final h2 { font-size: clamp(24px, 3vw, 34px); font-weight: 800; letter-spacing: -.025em; max-width: 20ch; }
+
+.rodape { max-width: 1240px; margin: 0 auto; padding: 40px clamp(16px, 5vw, 64px); display: flex; gap: 24px; flex-wrap: wrap; color: var(--tinta-3); font-size: 14px; }
+.rodape a { color: var(--tinta-2); text-decoration: none; }
+
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; }
+  .nota-demo { max-width: 520px; }
+  .passos, .recursos-grade { grid-template-columns: 1fr; }
+  .recursos-grade article { padding: 20px 0 !important; border-right: 0 !important; }
+  .topo-links { display: none; }
+}
+@media (max-width: 480px) {
+  .topo { gap: 12px; }
+  .topo .btn-texto { padding: 8px 6px; }
+  .nota-grade { grid-template-columns: 1fr 1fr; }
+  .nota-grade .g3, .nota-grade .g2 { grid-column: span 2; }
+  .nota-grade > div { border-right: 0; }
+  .carimbo span { font-size: 21px; }
+}

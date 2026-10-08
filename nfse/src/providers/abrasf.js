@@ -9,6 +9,7 @@ import { calcular } from '../core/calculo.js';
 import { soap } from '../util/http.js';
 import { parseXml, corpoSoap, todos, primeiro, texto } from './_resposta.js';
 import { tls } from './nacional.js';
+import { exigirEnderecoPublico } from '../util/rede.js';
 
 export const PRESETS = {
   'abrasf-2.04': {
@@ -138,6 +139,7 @@ async function chamar(ctx, operacao, dadosXml) {
   const cfg = cfgDe(ctx.municipio);
   const url = ctx.municipio?.urls?.[ctx.ambiente];
   if (!url) throw new Error(`URL do webservice (${ctx.ambiente}) não configurada para o município ${ctx.municipio?.nome || ''}.`);
+  await exigirEnderecoPublico(url);
   const wrapper = operacao + (cfg.sufixoRequest || '');
   const body = `<${wrapper} xmlns="${cfg.nsServico}">` +
     `<nfseCabecMsg>${esc(cabecalho(cfg))}</nfseCabecMsg>` +

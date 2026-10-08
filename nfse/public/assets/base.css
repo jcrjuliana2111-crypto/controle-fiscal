@@ -1,0 +1,92 @@
+/* Tokens e base compartilhados (site, login e aplicativo). */
+:root {
+  --papel: #f2f5f3;
+  --folha: #ffffff;
+  --tinta: #14212b;
+  --tinta-2: #4c5a64;
+  --tinta-3: #7d8a92;
+  --linha: #d3dbd7;
+  --linha-forte: #b7c3bd;
+  --carimbo: #2d45b4;
+  --carimbo-escuro: #22358c;
+  --carimbo-claro: #e6eaf8;
+  --ok: #16794a;
+  --ok-claro: #e3f2ea;
+  --erro: #b8322b;
+  --erro-claro: #f8e5e3;
+  --alerta: #9a6212;
+  --alerta-claro: #f7eedc;
+  --fonte: 'Schibsted Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --raio: 6px;
+  --raio-grande: 10px;
+  --sombra: 0 1px 2px rgba(20, 33, 43, .06), 0 4px 14px rgba(20, 33, 43, .06);
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--papel);
+  color: var(--tinta);
+  font: 400 15px/1.55 var(--fonte);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--carimbo); }
+img, svg { display: block; max-width: 100%; }
+:focus-visible { outline: 2px solid var(--carimbo); outline-offset: 2px; border-radius: 3px; }
+
+h1, h2, h3 { line-height: 1.15; letter-spacing: -.015em; }
+
+/* Botões */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font: 600 14px/1 var(--fonte); padding: 11px 18px; border-radius: var(--raio);
+  border: 1px solid transparent; cursor: pointer; text-decoration: none; white-space: nowrap;
+  transition: background-color .15s, border-color .15s, color .15s;
+}
+.btn-primario { background: var(--carimbo); color: #fff; }
+.btn-primario:hover { background: var(--carimbo-escuro); }
+.btn-secundario { background: var(--folha); color: var(--tinta); border-color: var(--linha-forte); }
+.btn-secundario:hover { border-color: var(--tinta-2); }
+.btn-perigo { background: var(--folha); color: var(--erro); border-color: #e3b3ae; }
+.btn-perigo:hover { background: var(--erro); color: #fff; border-color: var(--erro); }
+.btn-texto { background: none; color: var(--tinta-2); padding: 8px 10px; }
+.btn-texto:hover { color: var(--tinta); background: rgba(20, 33, 43, .05); }
+.btn-pequeno { padding: 7px 11px; font-size: 13px; }
+.btn[disabled] { opacity: .55; cursor: progress; }
+
+/* Formulários */
+.campo { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.campo > span { font-size: 13px; font-weight: 600; color: var(--tinta-2); }
+.campo small { font-size: 12px; color: var(--tinta-3); }
+input, select, textarea {
+  width: 100%; font: 400 15px/1.4 var(--fonte); color: var(--tinta);
+  background: var(--folha); border: 1px solid var(--linha-forte); border-radius: var(--raio);
+  padding: 10px 12px;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--carimbo); box-shadow: 0 0 0 3px var(--carimbo-claro); }
+input[type=checkbox], input[type=radio] { width: 16px; height: 16px; accent-color: var(--carimbo); padding: 0; }
+textarea { resize: vertical; min-height: 96px; }
+.check { display: flex; align-items: center; gap: 9px; font-size: 14px; cursor: pointer; }
+
+/* Selos de situação: lembram o carimbo da nota */
+.selo {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 4px;
+  font-size: 12.5px; font-weight: 600; border: 1px solid currentColor; white-space: nowrap; line-height: 1.3;
+}
+.selo-ok { color: var(--ok); background: var(--ok-claro); }
+.selo-erro { color: var(--erro); background: var(--erro-claro); }
+.selo-alerta { color: var(--alerta); background: var(--alerta-claro); }
+.selo-info { color: var(--carimbo); background: var(--carimbo-claro); }
+.selo-neutro { color: var(--tinta-2); background: #eaeeec; border-color: var(--linha-forte); }
+
+.marca { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; font-size: 17px; color: var(--tinta); text-decoration: none; letter-spacing: -.02em; }
+.marca svg { width: 28px; height: 28px; }
+
+.oculto { display: none !important; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+

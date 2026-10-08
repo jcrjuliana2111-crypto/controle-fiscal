@@ -51,3 +51,15 @@ test('leitura do certificado A1', () => {
 test('data/hora no fuso de Brasília', () => {
   assert.equal(dataHoraBrasilia(new Date('2026-01-01T02:30:00Z')), '2025-12-31T23:30:00-03:00');
 });
+
+test('bloqueio de endereços internos (SSRF)', async () => {
+  const { _privado, exigirEnderecoPublico } = await import('../src/util/rede.js');
+  for (const ip of ['127.0.0.1', '10.1.2.3', '172.16.0.1', '192.168.1.1', '169.254.169.254', '::1', 'fd00::1', '::ffff:127.0.0.1', '100.64.0.1'])
+    assert.ok(_privado(ip), ip);
+  for (const ip of ['8.8.8.8', '200.152.38.1', '2804:14c::1']) assert.ok(!_privado(ip), ip);
+  process.env.BLOQUEAR_REDE_PRIVADA = 'true';
+  await assert.rejects(exigirEnderecoPublico('https://127.0.0.1/hook'), /internos/);
+  await assert.rejects(exigirEnderecoPublico('http://[::1]:8080/'), /internos/);
+  await assert.rejects(exigirEnderecoPublico('https://localhost/x'), /internos/);
+  delete process.env.BLOQUEAR_REDE_PRIVADA;
+});

@@ -9,6 +9,7 @@ import { calcular } from '../core/calculo.js';
 import { soap } from '../util/http.js';
 import { parseXml, corpoSoap, todos, primeiro, texto } from './_resposta.js';
 import { tls } from './nacional.js';
+import { exigirEnderecoPublico } from '../util/rede.js';
 
 const URL_WS = 'https://nfe.prefeitura.sp.gov.br/ws/lotenfe.asmx';
 const NS = 'http://www.prefeitura.sp.gov.br/nfe';
@@ -79,7 +80,9 @@ export function montarRpsSp({ prestador: p, nota, serie, numero, cert }) {
 
 async function chamar(ctx, operacao, mensagem) {
   const body = `<${operacao}Request xmlns="${NS}"><VersaoSchema>1</VersaoSchema><MensagemXML>${esc(mensagem)}</MensagemXML></${operacao}Request>`;
-  const res = await soap(ctx.municipio?.urls?.[ctx.ambiente] || URL_WS, {
+  const url = ctx.municipio?.urls?.[ctx.ambiente] || URL_WS;
+  await exigirEnderecoPublico(url);
+  const res = await soap(url, {
     action: ACTION + operacao.charAt(0).toLowerCase() + operacao.slice(1), body, ...tls(ctx),
   });
   const xml = corpoSoap(res.text);

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrar — %APP_NAME%</title>
+<link rel="icon" href="/assets/marca.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/base.css">
+<link rel="stylesheet" href="/assets/entrar.css">
+</head>
+<body>
+<main class="acesso">
+  <a class="marca" href="/"><img src="/assets/marca.svg" alt="" width="28" height="28">%APP_NAME%</a>
+
+  <form class="cartao" data-modo="entrar">
+    <h1>Entrar</h1>
+    <label class="campo"><span>E-mail</span><input name="email" type="email" autocomplete="email" required></label>
+    <label class="campo"><span>Senha</span><input name="senha" type="password" autocomplete="current-password" required></label>
+    <p class="msg" role="alert"></p>
+    <button class="btn btn-primario" type="submit">Entrar</button>
+    <p class="alternativas"><a href="#esqueci">Esqueci minha senha</a><span>Não tem conta? <a href="#cadastro">Teste grátis</a></span></p>
+  </form>
+
+  <form class="cartao" data-modo="cadastro">
+    <h1>Crie sua conta</h1>
+    <p class="intro">14 dias grátis, sem cartão. Homologação ilimitada.</p>
+    <label class="campo"><span>Seu nome</span><input name="nome" autocomplete="name" required></label>
+    <label class="campo"><span>Empresa ou escritório</span><input name="empresa" autocomplete="organization" required></label>
+    <label class="campo"><span>E-mail de trabalho</span><input name="email" type="email" autocomplete="email" required></label>
+    <label class="campo"><span>Senha</span><input name="senha" type="password" autocomplete="new-password" minlength="8" required><small>Pelo menos 8 caracteres.</small></label>
+    <p class="msg" role="alert"></p>
+    <button class="btn btn-primario" type="submit">Criar conta</button>
+    <p class="alternativas"><span>Já tem conta? <a href="#entrar">Entrar</a></span></p>
+  </form>
+
+  <form class="cartao" data-modo="esqueci">
+    <h1>Recuperar acesso</h1>
+    <p class="intro">Enviaremos um link para você criar uma nova senha.</p>
+    <label class="campo"><span>E-mail</span><input name="email" type="email" autocomplete="email" required></label>
+    <p class="msg" role="alert"></p>
+    <button class="btn btn-primario" type="submit">Enviar link</button>
+    <p class="alternativas"><a href="#entrar">Voltar para o login</a></p>
+  </form>
+
+  <form class="cartao" data-modo="redefinir">
+    <h1>Nova senha</h1>
+    <label class="campo"><span>Nova senha</span><input name="senha" type="password" autocomplete="new-password" minlength="8" required><small>Pelo menos 8 caracteres.</small></label>
+    <p class="msg" role="alert"></p>
+    <button class="btn btn-primario" type="submit">Salvar senha e entrar</button>
+  </form>
+
+  <form class="cartao" data-modo="convite">
+    <h1>Convite</h1>
+    <p class="intro" data-convite-texto></p>
+    <div data-convite-novo>
+      <label class="campo"><span>Seu nome</span><input name="nome" autocomplete="name"></label>
+      <label class="campo"><span>Crie uma senha</span><input name="senha" type="password" autocomplete="new-password" minlength="8"></label>
+    </div>
+    <p class="msg" role="alert"></p>
+    <button class="btn btn-primario" type="submit">Aceitar convite</button>
+  </form>
+
+  <div class="cartao" data-modo="verificar">
+    <h1>Confirmação de e-mail</h1>
+    <p class="msg" role="alert"></p>
+    <a class="btn btn-primario" href="/app.html">Ir para o sistema</a>
+  </div>
+</main>
+<script src="/assets/entrar.js" type="module"></script>
+</body>
+</html>

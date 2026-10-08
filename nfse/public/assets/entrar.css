@@ -1,0 +1,13 @@
+body { min-height: 100vh; }
+.acesso { max-width: 420px; margin: 0 auto; padding: clamp(28px, 8vh, 72px) 16px 48px; display: flex; flex-direction: column; gap: 28px; }
+.acesso > .marca { align-self: center; }
+.cartao { display: none; flex-direction: column; gap: 16px; background: var(--folha); border: 1px solid var(--linha-forte); border-radius: var(--raio-grande); padding: 30px 28px; box-shadow: var(--sombra); }
+.cartao.ativo { display: flex; }
+.cartao h1 { font-size: 26px; font-weight: 800; }
+.cartao .intro { color: var(--tinta-2); margin-top: -8px; }
+.cartao .btn { width: 100%; padding: 13px; }
+.msg:empty { display: none; }
+.msg { font-size: 14px; padding: 10px 12px; border-radius: var(--raio); background: var(--erro-claro); color: var(--erro); }
+.msg.ok { background: var(--ok-claro); color: var(--ok); }
+.alternativas { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 14px; color: var(--tinta-2); }
+[data-convite-novo] { display: flex; flex-direction: column; gap: 16px; }

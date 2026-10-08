@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test --test-concurrency=1 test/*.test.js",
+    "migrate": "node src/db/migrar.js"
   },
   "license": "UNLICENSED",
   "private": true,
@@ -19,6 +20,8 @@
     "express": "^4.22.3",
     "fast-xml-parser": "^5.11.2",
     "node-forge": "^1.4.0",
+    "nodemailer": "^10.0.16",
+    "pg": "^8.23.1",
     "xml-crypto": "^6.3.3"
   }
 }

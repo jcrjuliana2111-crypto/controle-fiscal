@@ -1,0 +1,6 @@
+node_modules
+test
+data/db.json*
+.env
+*.pfx
+*.p12

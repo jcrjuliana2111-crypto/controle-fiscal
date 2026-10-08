@@ -1,113 +1,106 @@
-# Emissor de NFS-e
+# Emissor NFS-e (SaaS)
 
-Sistema de emissão de Nota Fiscal de Serviço Eletrônica que atende:
+Plataforma multiempresa para emissão de Nota Fiscal de Serviço Eletrônica, vendida por assinatura para escritórios contábeis e empresas de serviço.
 
-| Provedor | Quem usa | Transporte | Situação |
-|---|---|---|---|
-| **Padrão Nacional** (Sefin Nacional / ADN) | Todos os municípios conveniados ao Emissor Nacional — é o **padrão** para qualquer município não cadastrado como "sistema próprio" | REST + mTLS, DPS v1.01 (GZip/Base64), assinatura RSA-SHA256 | Emissão, consulta (por chave e por ID da DPS), cancelamento (evento e101101), DANFSe oficial em PDF, parâmetros municipais |
-| **ABRASF 2.x** | Prefeituras com webservice próprio no padrão ABRASF (Betha, ISSNet, WebISS, Fiorilli, e-Governe, SigISS…) | SOAP 1.1/1.2, assinatura RSA-SHA1 | `GerarNfse`, `ConsultarNfsePorRps`, `CancelarNfse` — configurável por município (presets 2.04, 2.02, Betha) |
-| **NFS-e Paulistana** | São Paulo/SP (sistema próprio, leiaute v1) | SOAP, assinatura do RPS (string de 86 posições) + XMLDSig | `EnvioRPS`, `ConsultaNFe`, `CancelamentoNFe`; em homologação usa `TesteEnvioLoteRPS` (SP não tem ambiente de testes) |
+| Padrão | Quem usa | Situação |
+|---|---|---|
+| **Portal Nacional** (Sefin Nacional / ADN, DPS 1.01) | Todos os municípios conveniados ao Emissor Nacional. É o padrão para qualquer município não cadastrado como "sistema próprio" | Emissão, consulta, cancelamento, DANFSe em PDF, parâmetros municipais |
+| **ABRASF 2.x** | Prefeituras com webservice próprio (Betha, ISSNet, WebISS e outros) | Emissão, consulta e cancelamento, configuráveis por município |
+| **NFS-e Paulistana** | São Paulo capital | Emissão, consulta e cancelamento (em homologação usa o teste de validação da prefeitura) |
 
-O provedor é escolhido **automaticamente** pelo código IBGE do município do prestador (pode ser forçado no cadastro do prestador).
+## O que o produto tem
 
-## Funcionalidades
+**Para o cliente**
+- Cadastro com teste grátis (14 dias), login, recuperação de senha e confirmação de e-mail.
+- Várias empresas emitentes por conta, cada uma com seu certificado A1, numeração e ambiente (homologação ou produção).
+- Equipe com perfis: dono, administrador, emissor e somente leitura; convites por e-mail.
+- Emissão com cálculo de ISS, retenções e valor líquido; conferência do XML antes de enviar.
+- Lista de notas com busca e filtros, detalhe com histórico, DANFSe ou impressão, XML, cancelamento e exportação para planilha.
+- Painel com faturamento, ISS do mês, uso do plano e certificados vencendo.
+- Integração: API REST com chaves de acesso e webhooks assinados (HMAC-SHA256) com reenvio automático. Documentação pública em `/docs.html`.
+- Histórico de atividades (quem fez o quê, quando e de qual IP).
 
-- Cadastro de prestadores (regime do Simples Nacional, regime especial, série e numeração de RPS/DPS, ambiente homologação/produção).
-- Certificado digital **A1 (.pfx)**: validação de senha/validade, conferência do CNPJ, armazenamento cifrado (AES-256-GCM). Nunca é devolvido pela API.
-- Emissão com cálculo de ISS, ISS retido, retenções federais (PIS, COFINS, INSS, IRRF, CSLL) e valor líquido (em centavos, sem erro de arredondamento).
-- Tomador PJ, PF, estrangeiro (NIF) ou não identificado; busca de endereço/IBGE pelo CEP.
-- **CNPJ alfanumérico** (a partir de jul/2026) aceito e validado.
-- Grupo **IBS/CBS** (Reforma Tributária, LC 214/2025) opcional na DPS Nacional.
-- Pré-visualização do XML assinado antes de transmitir.
-- Numeração serializada por prestador (emissões simultâneas não repetem número); rejeições não consomem número; falha de comunicação deixa a nota em "processando" para consulta posterior (evita duplicidade).
-- Lista de notas com consulta de situação, cancelamento, download do XML, DANFSe (Nacional) ou espelho imprimível (prefeituras) e exportação CSV.
-- Cadastro de municípios com sistema próprio pela própria tela.
+**Para você (dono da plataforma)**
+- Página de vendas (`/`) com a tabela de planos lida do sistema.
+- Área de administração: contas, plano, situação (ativa/suspensa/cancelada) e prorrogação de teste.
+- Planos com limites aplicados pelo servidor (notas por mês em produção, empresas, usuários, acesso à API). Edite preços e limites em `src/saas/planos.js`.
 
-## Como rodar
+**Segurança**
+- Dados de cada cliente isolados por conta em todas as consultas (há testes que tentam acessar dados de outra conta).
+- Certificados cifrados com criptografia em envelope: chave por certificado, protegida pela `NFSE_MASTER_KEY`.
+- Senhas com scrypt; sessões em cookie `HttpOnly`/`Secure`/`SameSite`; proteção CSRF; limite de tentativas de login.
+- Cabeçalhos de segurança (CSP sem scripts inline, HSTS, anti-clickjacking).
+- Bloqueio de SSRF: webhooks e URLs de prefeitura não podem apontar para a rede interna.
+- Superadmin só para e-mails da lista **já confirmados**.
+- Idempotência na emissão (`Idempotency-Key`) e numeração atômica: emissões simultâneas não repetem número de RPS/DPS.
 
-Requer Node.js 20+.
+## Rodar no seu computador
 
+Requer Node.js 20+ e PostgreSQL 14+ (ou Docker).
+
+**Com Docker (mais simples):**
 ```bash
 cd nfse
-npm install
-NFSE_SECRET="uma-frase-longa-e-secreta" npm start
+cp .env.example .env        # edite: POSTGRES_PASSWORD, NFSE_MASTER_KEY, SUPERADMIN_EMAILS
+docker compose up -d --build
 # abra http://127.0.0.1:3333
 ```
 
-Variáveis de ambiente:
-
-| Variável | Padrão | Para quê |
-|---|---|---|
-| `NFSE_SECRET` | (inseguro) | Chave que cifra certificados e senhas em disco. **Obrigatória em produção** — se mudar, os certificados precisam ser reinstalados. |
-| `NFSE_API_TOKEN` | vazio | Se definido, a API exige `Authorization: Bearer <token>` (a tela pede o token no botão 🔑). Use sempre que o servidor não for só local. |
-| `PORT` / `HOST` | `3333` / `127.0.0.1` | Endereço do servidor. Para expor na rede use `HOST=0.0.0.0` **com** `NFSE_API_TOKEN` e HTTPS na frente (nginx/Caddy). |
-| `NFSE_DATA_DIR` | `nfse/data` | Onde fica o `db.json` (prestadores, notas e XMLs). Faça backup — os XMLs autorizados devem ser guardados por 5 anos. |
-| `NFSE_CORS_ORIGIN` | `*` | Origem autorizada a chamar a API pelo navegador. |
-
-Testes: `npm test` (validações, cálculo, certificado, montagem e assinatura dos XMLs dos três provedores e fluxo completo contra servidores simulados).
-
-## Primeiros passos
-
-1. **Prestadores → Novo prestador**: preencha CNPJ, inscrição municipal e o **código IBGE** do município. Deixe em *Homologação*.
-2. Instale o certificado A1 (.pfx + senha).
-3. **Emitir nota**: confira o provedor mostrado abaixo do prestador, preencha tomador, serviço e valores, clique em **Ver XML** e depois **Emitir**.
-4. Validado em homologação, mude o prestador para *Produção*.
-
-### Padrão Nacional
-
-- O prestador precisa estar habilitado no **Cadastro Nacional (CNC)** e o município precisa ter convênio ativo com o Emissor Nacional.
-- `cTribNac` = item + subitem + desdobro da LC 116 (6 dígitos, ex.: `010701`). Se ficar vazio, é derivado do item com desdobro `01`.
-- Alíquota (`pAliq`): para não optantes o ADN usa a alíquota parametrizada pelo município; ela só é enviada para optante ME/EPP ou quando há ISS retido.
-- O endereço/nome do prestador não são enviados (o ADN usa o CNC).
-
-### Prefeituras com sistema próprio (ABRASF)
-
-Em **Municípios → Cadastrar município** informe o código IBGE, o leiaute (preset) e as URLs de homologação e produção **do manual da prefeitura**. Diferenças entre provedores (namespace do serviço, SOAPAction, SOAP 1.2, nome do grupo do tomador, algoritmo de assinatura) podem ser ajustadas em "Opções avançadas", por exemplo:
-
-```json
-{ "soapVersion": "1.2", "nsServico": "http://www.exemplo.gov.br/nfse", "soapAction": "{operacao}", "tagTomador": "Tomador", "algoritmo": "sha256" }
+**Sem Docker:**
+```bash
+cd nfse
+npm install
+createdb nfse                                   # PostgreSQL local
+export DATABASE_URL=postgres://usuario:senha@127.0.0.1:5432/nfse
+export SUPERADMIN_EMAILS=voce@seudominio.com.br
+npm start                                       # cria as tabelas sozinho
 ```
 
-As URLs não vêm pré-cadastradas de propósito: elas mudam com frequência e cada prefeitura precisa ser homologada com o seu próprio manual.
+Sem SMTP configurado, os e-mails (confirmação, convite, senha) aparecem no terminal com o link. Para virar administrador da plataforma: cadastre-se com o e-mail de `SUPERADMIN_EMAILS`, abra o link de confirmação que aparece no terminal e entre de novo.
 
-### São Paulo
+**Testes:** `npm test` (precisa de um banco de teste; padrão `postgres://nfse:nfse@127.0.0.1:5432/nfse_test`, ou defina `DATABASE_URL`). **O banco de teste é apagado a cada execução.**
 
-Usa o leiaute v1 da NFS-e Paulistana. Informe o **código de serviço de SP** (5 dígitos) e a tributação (T/F/I/J). Como a prefeitura não oferece homologação, no ambiente de homologação a mensagem é enviada ao `TesteEnvioLoteRPS`, que valida tudo sem gerar nota (status "Validada (teste)").
+## Colocar no ar (produção)
 
-## Pontos de atenção antes de produção
+1. Um servidor (VPS) com Docker, ou qualquer hospedagem Node.js + PostgreSQL gerenciado.
+2. Domínio com HTTPS. Exemplo com Caddy na frente da aplicação:
+   ```
+   app.seudominio.com.br {
+     reverse_proxy 127.0.0.1:3333
+   }
+   ```
+3. `.env` de produção (veja `.env.example`): `NODE_ENV=production`, `APP_URL=https://…`, `NFSE_MASTER_KEY` (gere com `openssl rand -base64 32`), `SMTP_URL`, `SUPPORT_EMAIL`, `SUPERADMIN_EMAILS`.
+4. **Guarde a `NFSE_MASTER_KEY` fora do servidor** (gerenciador de senhas). Sem ela, os certificados dos clientes não podem ser lidos; se vazar, troque-a e peça aos clientes que reinstalem os certificados.
+5. **Backup diário do PostgreSQL** (os XMLs autorizados devem ser guardados por 5 anos). Ex.: `pg_dump` agendado enviado a um armazenamento externo, ou backup automático do banco gerenciado.
+6. Monitore `GET /saude` (retorna 200 com o banco no ar). Os logs de requisição saem em JSON no stdout.
 
-- **Homologue cada cenário** (tomador PF/PJ/exterior, retenções, Simples Nacional) no ambiente de produção restrita do Nacional e no ambiente de testes de cada prefeitura: os leiautes foram implementados conforme as especificações públicas, mas regras de validação mudam por notas técnicas.
-- **Reforma Tributária**: o grupo IBS/CBS está implementado no nível mínimo (CST/cClassTrib, finalidade, indicador da operação, destinatário). Acompanhe as notas técnicas do leiaute 1.01+ e o novo leiaute de São Paulo.
-- A persistência em arquivo JSON atende um escritório; para múltiplos usuários migre para Postgres/Supabase (a interface `db.get()/db.update()` em `src/store/db.js` isola isso).
+O servidor aplica as migrações do banco ao iniciar (com trava, seguro para várias instâncias). Para mais de uma instância, troque o limitador de tentativas em memória (`src/saas/limitador.js`) por Redis.
+
+## Antes de vender: o que ainda depende de você
+
+- **Cobrança automática.** Hoje a troca de plano é feita por você na tela de Administração e o cliente é orientado a falar com o `SUPPORT_EMAIL`. Falta integrar um meio de pagamento (Asaas, Stripe, Mercado Pago, Iugu…) para assinatura recorrente, que atualiza o plano e suspende a conta em caso de inadimplência.
+- **Homologação real.** Os leiautes foram implementados pelas especificações públicas e testados contra simuladores, mas este ambiente de desenvolvimento não acessa o gov.br. Emita em homologação com um certificado real no Portal Nacional, em São Paulo e em cada prefeitura ABRASF que for atender, cenário por cenário (PF, PJ, exterior, retenções, Simples Nacional).
+- **Documentos legais e LGPD.** Termos de uso, política de privacidade e contrato de tratamento de dados (você será operador de dados dos clientes e guardará certificados digitais). Revise com um advogado.
+- **Marca.** O nome vem de `APP_NAME`; troque também `public/assets/marca.svg`.
+- **Prefeituras ABRASF.** Cadastre na Administração (configuração global) as prefeituras que seus clientes usam, para que eles não precisem configurar nada.
+- **Reforma tributária.** O grupo IBS/CBS está no nível mínimo; acompanhe as notas técnicas do Portal Nacional e o novo leiaute de São Paulo.
 
 ## Estrutura
 
 ```
 nfse/
-├── server.js                 # servidor HTTP (API + tela)
-├── public/index.html         # interface web
-├── data/municipios.json      # municípios com sistema próprio (versionado)
+├── server.js                    # servidor HTTP (API /api/v1 + páginas)
+├── Dockerfile, docker-compose.yml, .env.example
+├── public/                      # site, login, aplicativo e documentação da API
+│   ├── index.html  entrar.html  app.html  docs.html
+│   └── assets/                  # CSS e JS (sem scripts inline)
+├── data/municipios.json         # integrações nativas (São Paulo)
 ├── src/
-│   ├── api/rotas.js          # endpoints REST /api/*
-│   ├── core/                 # emissão, cálculo, validação, certificado, assinatura, municípios
-│   ├── providers/            # nacional.js, abrasf.js, sao-paulo.js
-│   ├── store/db.js           # persistência
-│   └── espelho.js            # espelho imprimível da nota
-└── test/                     # node --test
+│   ├── db/                      # conexão e migrações SQL
+│   ├── saas/                    # contas, sessões, planos, equipe, webhooks, auditoria, e-mail
+│   ├── api/                     # rotas e middleware (auth, CSRF, permissões)
+│   ├── core/                    # notas, empresas, municípios, cálculo, validação, certificado, assinatura
+│   ├── providers/               # nacional.js, abrasf.js, sao-paulo.js
+│   └── util/                    # XML, HTTP/SOAP, criptografia, proteção de rede
+└── test/                        # node --test (unidade + integração com PostgreSQL)
 ```
-
-### API (resumo)
-
-| Método | Rota | Descrição |
-|---|---|---|
-| GET/POST/PUT/DELETE | `/api/prestadores[/:id]` | Cadastro de prestadores |
-| POST | `/api/prestadores/:id/certificado` | `{ pfxBase64, senha }` |
-| GET | `/api/prestadores/:id/parametros/:ibge?servico=` | Parâmetros municipais no ADN |
-| GET/PUT/DELETE | `/api/municipios[/:ibge]` | Municípios com sistema próprio |
-| POST | `/api/calcular` | Cálculo de ISS/retenções/líquido |
-| POST | `/api/notas/previsualizar` | XML assinado sem transmitir |
-| POST | `/api/notas` | Emitir |
-| GET | `/api/notas`, `/api/notas.csv` | Listar / exportar |
-| POST | `/api/notas/:id/consultar` | Atualiza situação no fisco |
-| POST | `/api/notas/:id/cancelar` | `{ codigo, motivo }` |
-| GET | `/api/notas/:id/xml[?tipo=envio]`, `/danfse`, `/espelho` | Documentos |

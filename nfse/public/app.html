@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>%APP_NAME%</title>
+<link rel="icon" href="/assets/marca.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/base.css">
+<link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<div class="app">
+  <aside class="lateral" id="lateral">
+    <a class="marca" href="#/painel"><img src="/assets/marca.svg" alt="" width="28" height="28">%APP_NAME%</a>
+    <label class="campo seletor-conta"><span class="sr">Conta</span><select id="seletor-conta"></select></label>
+    <nav class="menu" id="menu">
+      <a href="#/painel" data-rota="painel">Painel</a>
+      <a href="#/emitir" data-rota="emitir" data-perm="emitir" class="menu-destaque">Emitir nota</a>
+      <a href="#/notas" data-rota="notas">Notas emitidas</a>
+      <a href="#/empresas" data-rota="empresas">Empresas emitentes</a>
+      <a href="#/municipios" data-rota="municipios">Municípios</a>
+      <a href="#/equipe" data-rota="equipe">Equipe</a>
+      <a href="#/integracoes" data-rota="integracoes" data-perm="integracoes">Integrações</a>
+      <a href="#/conta" data-rota="conta">Plano e conta</a>
+      <a href="#/admin" data-rota="admin" data-superadmin class="oculto">Administração</a>
+    </nav>
+    <div class="usuario">
+      <div><strong id="usuario-nome"></strong><span id="usuario-papel"></span></div>
+      <button class="btn btn-texto btn-pequeno" data-acao="sair">Sair</button>
+    </div>
+  </aside>
+
+  <div class="principal">
+    <header class="barra-movel">
+      <button class="btn btn-texto" data-acao="abrir-menu" aria-label="Abrir menu" aria-controls="lateral">☰ Menu</button>
+      <a class="marca" href="#/painel"><img src="/assets/marca.svg" alt="" width="24" height="24">%APP_NAME%</a>
+    </header>
+    <div id="avisos" class="avisos"></div>
+    <main id="conteudo" class="conteudo" tabindex="-1"></main>
+  </div>
+</div>
+
+<!-- Formulário de emissão (clonado na rota "emitir") -->
+<template id="tpl-emitir">
+  <div class="cabecalho-pagina"><div><h1>Emitir nota</h1><p>O padrão de emissão é escolhido pelo município da empresa emitente.</p></div></div>
+  <form class="emitir" id="form-emitir" novalidate>
+    <div class="emitir-campos">
+      <section class="bloco">
+        <h2>Empresa emitente</h2>
+        <div class="grade">
+          <label class="campo c8"><span>Empresa</span><select name="prestadorId" required></select></label>
+          <label class="campo c4"><span>Competência</span><input type="date" name="competencia" required></label>
+        </div>
+        <div class="info-provedor" data-info-provedor></div>
+      </section>
+
+      <section class="bloco">
+        <h2>Tomador do serviço</h2>
+        <div class="grade">
+          <label class="campo c4"><span>Tipo</span>
+            <select name="tomador.tipo">
+              <option value="PJ">Pessoa jurídica</option><option value="PF">Pessoa física</option>
+              <option value="EXT">Exterior</option><option value="NI">Não identificado</option>
+            </select></label>
+          <label class="campo c4" data-tomador="br"><span data-rotulo-doc>CNPJ</span><input name="tomador.documento" inputmode="text" autocomplete="off"></label>
+          <label class="campo c4 oculto" data-tomador="ext"><span>NIF</span><input name="tomador.nif"></label>
+          <label class="campo c4" data-tomador="id"><span>Inscrição municipal <small>opcional</small></span><input name="tomador.inscricaoMunicipal"></label>
+          <label class="campo c8" data-tomador="id"><span>Nome ou razão social</span><input name="tomador.nome" autocomplete="off"></label>
+          <label class="campo c4" data-tomador="id"><span>E-mail <small>recebe a nota</small></span><input name="tomador.email" type="email"></label>
+        </div>
+        <details class="mais" data-tomador="id">
+          <summary>Endereço do tomador</summary>
+          <div class="grade">
+            <label class="campo c3"><span>CEP</span><input name="tomador.endereco.cep" inputmode="numeric" data-cep></label>
+            <label class="campo c7"><span>Logradouro</span><input name="tomador.endereco.logradouro"></label>
+            <label class="campo c2"><span>Número</span><input name="tomador.endereco.numero"></label>
+            <label class="campo c4"><span>Complemento</span><input name="tomador.endereco.complemento"></label>
+            <label class="campo c4"><span>Bairro</span><input name="tomador.endereco.bairro"></label>
+            <label class="campo c3"><span>Código IBGE</span><input name="tomador.endereco.codigoMunicipio" inputmode="numeric" maxlength="7"></label>
+            <label class="campo c1"><span>UF</span><input name="tomador.endereco.uf" maxlength="2"></label>
+            <label class="campo c4"><span>Telefone</span><input name="tomador.fone" inputmode="tel"></label>
+          </div>
+        </details>
+      </section>
+
+      <section class="bloco">
+        <h2>Serviço</h2>
+        <div class="grade">
+          <label class="campo c3"><span>Item da LC 116</span><input name="servico.itemListaServico" placeholder="17.19" data-item-lc></label>
+          <label class="campo c3"><span>Cód. tributação nacional</span><input name="servico.codigoTributacaoNacional" maxlength="6" inputmode="numeric" placeholder="171901"></label>
+          <label class="campo c3"><span>Cód. tributação municipal <small>opcional</small></span><input name="servico.codigoTributacaoMunicipal"></label>
+          <label class="campo c3"><span>Código NBS <small>opcional</small></span><input name="servico.codigoNbs"></label>
+          <label class="campo c3" data-so="sao-paulo"><span>Código de serviço SP</span><input name="servico.codigoServicoMunicipal" maxlength="5" inputmode="numeric"></label>
+          <label class="campo c4" data-so="sao-paulo"><span>Tributação em SP</span>
+            <select name="servico.tributacaoSp"><option value="T">Tributado em São Paulo</option><option value="F">Tributado fora de São Paulo</option><option value="I">Isento</option><option value="J">ISS suspenso</option></select></label>
+          <label class="campo c3" data-so="abrasf"><span>CNAE</span><input name="servico.cnae" inputmode="numeric"></label>
+          <label class="campo c12"><span>Descrição do serviço</span><textarea name="servico.discriminacao" maxlength="2000" required></textarea></label>
+        </div>
+      </section>
+
+      <section class="bloco">
+        <h2>Valores e tributos</h2>
+        <div class="grade">
+          <label class="campo c4"><span>Valor do serviço (R$)</span><input name="valores.servico" type="number" step="0.01" min="0" required data-calc></label>
+          <label class="campo c4"><span>Alíquota do ISS (%)</span><input name="valores.aliquotaIss" type="number" step="0.01" min="0" max="5" data-calc></label>
+          <label class="campo c4"><span>Tributação do ISS</span>
+            <select name="valores.tributacaoIssqn"><option value="1">Operação tributável</option><option value="2">Imunidade</option><option value="3">Exportação de serviço</option><option value="4">Não incidência</option></select></label>
+          <label class="check c6"><input type="checkbox" name="valores.issRetido" data-calc> ISS retido pelo tomador</label>
+          <label class="check c6"><input type="checkbox" name="valores.pisCofinsRetido" data-calc> PIS e COFINS retidos</label>
+        </div>
+        <details class="mais">
+          <summary>Deduções, descontos e retenções federais</summary>
+          <div class="grade">
+            <label class="campo c4"><span>Deduções</span><input name="valores.deducoes" type="number" step="0.01" min="0" data-calc></label>
+            <label class="campo c4"><span>Desconto incondicionado</span><input name="valores.descontoIncondicionado" type="number" step="0.01" min="0" data-calc></label>
+            <label class="campo c4"><span>Desconto condicionado</span><input name="valores.descontoCondicionado" type="number" step="0.01" min="0" data-calc></label>
+            <label class="campo c2"><span>PIS</span><input name="valores.pis" type="number" step="0.01" min="0" data-calc></label>
+            <label class="campo c2"><span>COFINS</span><input name="valores.cofins" type="number" step="0.01" min="0" data-calc></label>
+            <label class="campo c2"><span>INSS</span><input name="valores.inss" type="number" step="0.01" min="0" data-calc></label>
+            <label class="campo c2"><span>IRRF</span><input name="valores.ir" type="number" step="0.01" min="0" data-calc></label>
+            <label class="campo c2"><span>CSLL</span><input name="valores.csll" type="number" step="0.01" min="0" data-calc></label>
+            <label class="campo c2"><span>Outras</span><input name="valores.outrasRetencoes" type="number" step="0.01" min="0" data-calc></label>
+          </div>
+        </details>
+        <details class="mais" data-so="nacional">
+          <summary>IBS e CBS (reforma tributária)</summary>
+          <div class="grade">
+            <label class="campo c3"><span>cClassTrib</span><input name="ibsCbs.cClassTrib" maxlength="6" inputmode="numeric"><small>O CST são os 3 primeiros dígitos.</small></label>
+            <label class="campo c3"><span>Indicador da operação</span><input name="ibsCbs.cIndOp" maxlength="6"></label>
+            <label class="campo c3"><span>Finalidade</span><select name="ibsCbs.finNFSe"><option value="0">Normal</option></select></label>
+            <label class="campo c3"><span>Destinatário</span><select name="ibsCbs.indDest"><option value="0">O próprio tomador</option><option value="1">Outra pessoa</option></select></label>
+          </div>
+        </details>
+        <label class="campo" style="margin-top:16px"><span>Referência interna <small>opcional, ex.: nº do pedido</small></span><input name="referenciaExterna" maxlength="80"></label>
+      </section>
+      <div id="emitir-msgs" class="mensagens"></div>
+    </div>
+
+    <aside class="resumo">
+      <h2>Resumo</h2>
+      <dl id="resumo-valores"></dl>
+      <button class="btn btn-primario" type="submit" data-botao-emitir>Emitir nota</button>
+      <button class="btn btn-secundario" type="button" data-acao="ver-xml">Conferir XML</button>
+      <button class="btn btn-texto btn-pequeno" type="button" data-acao="limpar-emissao">Limpar formulário</button>
+    </aside>
+  </form>
+</template>
+
+<!-- Diálogos -->
+<dialog id="dlg-empresa" class="dialogo">
+  <form method="dialog" id="form-empresa" novalidate>
+    <header><h2 data-titulo>Empresa emitente</h2><button class="btn btn-texto" value="cancelar" aria-label="Fechar">✕</button></header>
+    <div class="dialogo-corpo">
+      <input type="hidden" name="id">
+      <div class="grade">
+        <label class="campo c8"><span>Razão social</span><input name="razaoSocial" required></label>
+        <label class="campo c4"><span>CNPJ ou CPF</span><input name="documento" required></label>
+        <label class="campo c4"><span>Inscrição municipal</span><input name="inscricaoMunicipal"></label>
+        <label class="campo c4"><span>Município</span><input name="municipio"></label>
+        <label class="campo c2"><span>UF</span><input name="uf" maxlength="2"></label>
+        <label class="campo c2"><span>Código IBGE</span><input name="codigoMunicipio" maxlength="7" inputmode="numeric" required></label>
+        <label class="campo c6"><span>E-mail</span><input name="email" type="email"></label>
+        <label class="campo c6"><span>Telefone</span><input name="fone"></label>
+        <label class="campo c4"><span>Simples Nacional</span>
+          <select name="opSimpNac"><option value="1">Não optante</option><option value="2">MEI</option><option value="3">Optante ME/EPP</option></select></label>
+        <label class="campo c4" data-se-simples><span>Apuração no Simples</span>
+          <select name="regApTribSN"><option value="1">Federais e ISS pelo Simples</option><option value="2">Federais pelo Simples, ISS fora</option><option value="3">Federais e ISS fora do Simples</option></select></label>
+        <label class="campo c4"><span>Regime especial</span>
+          <select name="regEspTrib"><option value="0">Nenhum</option><option value="1">Ato cooperado</option><option value="2">Estimativa</option><option value="3">Microempresa municipal</option><option value="4">Notário ou registrador</option><option value="5">Profissional autônomo</option><option value="6">Sociedade de profissionais</option></select></label>
+        <label class="campo c3"><span>Série</span><input name="serie"></label>
+        <label class="campo c3"><span>Próximo número</span><input name="proximoNumero" type="number" min="1"></label>
+        <label class="campo c3"><span>Ambiente</span><select name="ambiente"><option value="homologacao">Homologação (teste)</option><option value="producao">Produção</option></select></label>
+        <label class="campo c3"><span>Padrão de emissão</span><select name="provedor"></select></label>
+        <label class="campo c4"><span>Alíquota padrão do ISS (%)</span><input name="aliquotaPadrao" type="number" step="0.01"></label>
+        <label class="campo c4"><span>Item LC 116 padrão</span><input name="itemListaPadrao"></label>
+        <label class="campo c4"><span>Cód. tributação nacional padrão</span><input name="codigoTributacaoNacionalPadrao" maxlength="6"></label>
+      </div>
+      <section class="certificado" data-certificado>
+        <h3>Certificado digital A1</h3>
+        <p data-cert-info></p>
+        <div class="grade">
+          <label class="campo c6"><span>Arquivo .pfx ou .p12</span><input type="file" name="pfx" accept=".pfx,.p12"></label>
+          <label class="campo c4"><span>Senha do certificado</span><input type="password" name="senhaPfx" autocomplete="off"></label>
+          <div class="c2 alinhar-base"><button class="btn btn-secundario" type="button" data-acao="instalar-certificado">Instalar</button></div>
+        </div>
+        <small>O arquivo é criptografado no servidor e nunca é exibido de novo.</small>
+      </section>
+      <p class="msg-form" role="alert"></p>
+    </div>
+    <footer>
+      <button class="btn btn-perigo" type="button" data-acao="remover-empresa">Remover</button>
+      <span class="espaco"></span>
+      <button class="btn btn-secundario" value="cancelar">Fechar</button>
+      <button class="btn btn-primario" type="button" data-acao="salvar-empresa">Salvar</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog id="dlg-municipio" class="dialogo">
+  <form method="dialog" id="form-municipio" novalidate>
+    <header><h2>Município com sistema próprio</h2><button class="btn btn-texto" value="cancelar" aria-label="Fechar">✕</button></header>
+    <div class="dialogo-corpo">
+      <div class="grade">
+        <label class="campo c3"><span>Código IBGE</span><input name="codigo" maxlength="7" inputmode="numeric" required></label>
+        <label class="campo c7"><span>Nome</span><input name="nome" required></label>
+        <label class="campo c2"><span>UF</span><input name="uf" maxlength="2"></label>
+        <label class="campo c6"><span>Padrão</span><select name="provedor"></select></label>
+        <label class="campo c6" data-so-abrasf><span>Leiaute ABRASF</span><select name="preset"></select></label>
+        <label class="campo c12"><span>Webservice de homologação</span><input name="urlHomologacao" placeholder="https://"></label>
+        <label class="campo c12"><span>Webservice de produção</span><input name="urlProducao" placeholder="https://"></label>
+        <label class="campo c12"><span>Observação</span><input name="observacao"></label>
+        <label class="campo c12"><span>Ajustes avançados (JSON) <small>nsServico, soapAction, soapVersion, tagTomador, algoritmo</small></span><textarea name="opcoes" class="codigo" placeholder='{"soapVersion": "1.2"}'></textarea></label>
+      </div>
+      <p class="msg-form" role="alert"></p>
+    </div>
+    <footer><span class="espaco"></span><button class="btn btn-secundario" value="cancelar">Fechar</button><button class="btn btn-primario" type="button" data-acao="salvar-municipio">Salvar</button></footer>
+  </form>
+</dialog>
+
+<dialog id="dlg-cancelar" class="dialogo dialogo-estreito">
+  <form method="dialog" id="form-cancelar">
+    <header><h2>Cancelar nota</h2><button class="btn btn-texto" value="cancelar" aria-label="Fechar">✕</button></header>
+    <div class="dialogo-corpo">
+      <input type="hidden" name="id">
+      <label class="campo"><span>Motivo</span><select name="codigo"></select></label>
+      <label class="campo"><span>Justificativa</span><textarea name="motivo" minlength="15" maxlength="255" required></textarea><small>Mínimo de 15 caracteres. O cancelamento é definitivo.</small></label>
+      <p class="msg-form" role="alert"></p>
+    </div>
+    <footer><span class="espaco"></span><button class="btn btn-secundario" value="cancelar">Voltar</button><button class="btn btn-perigo" type="button" data-acao="confirmar-cancelamento">Cancelar nota</button></footer>
+  </form>
+</dialog>
+
+<dialog id="dlg-xml" class="dialogo dialogo-largo">
+  <form method="dialog">
+    <header><h2 data-titulo>XML</h2><button class="btn btn-texto" value="cancelar" aria-label="Fechar">✕</button></header>
+    <div class="dialogo-corpo"><pre class="xml" data-xml></pre></div>
+    <footer><span class="espaco"></span><button class="btn btn-secundario" value="cancelar">Fechar</button></footer>
+  </form>
+</dialog>
+
+<dialog id="dlg-segredo" class="dialogo dialogo-estreito">
+  <form method="dialog">
+    <header><h2 data-titulo>Guarde esta informação</h2></header>
+    <div class="dialogo-corpo">
+      <p data-texto></p>
+      <pre class="segredo" data-segredo></pre>
+      <button class="btn btn-secundario" type="button" data-acao="copiar-segredo">Copiar</button>
+    </div>
+    <footer><span class="espaco"></span><button class="btn btn-primario" value="ok">Já guardei</button></footer>
+  </form>
+</dialog>
+
+<div class="aviso-flutuante" id="toast" role="status" aria-live="polite"></div>
+<script src="/assets/app.js" type="module"></script>
+</body>
+</html>

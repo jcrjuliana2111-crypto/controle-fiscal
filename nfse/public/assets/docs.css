@@ -1,0 +1,16 @@
+.docs { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 48px; padding-top: 32px; padding-bottom: 48px; }
+.docs-indice { position: sticky; top: 24px; align-self: start; display: flex; flex-direction: column; gap: 8px; font-size: 14.5px; }
+.docs-indice a { color: var(--tinta-2); text-decoration: none; }
+.docs-indice a:hover { color: var(--carimbo); }
+.docs article { max-width: 760px; }
+.docs h1 { font-size: clamp(30px, 4vw, 42px); font-weight: 800; letter-spacing: -.03em; margin-bottom: 12px; }
+.docs h2 { font-size: 22px; font-weight: 800; margin: 40px 0 10px; scroll-margin-top: 20px; }
+.docs p, .docs li { color: var(--tinta-2); margin: 10px 0; max-width: 72ch; }
+.docs ul { padding-left: 20px; }
+.docs code { font: 13.5px ui-monospace, Menlo, Consolas, monospace; background: #e6ebe8; padding: 1px 5px; border-radius: 4px; color: var(--tinta); }
+.docs pre { background: var(--tinta); color: #e8eef2; border-radius: var(--raio); padding: 16px 18px; overflow-x: auto; margin: 14px 0; }
+.docs pre code { background: none; color: inherit; padding: 0; font-size: 13px; line-height: 1.6; }
+.tabela-docs { border-collapse: collapse; width: 100%; margin: 12px 0; background: var(--folha); border: 1px solid var(--linha); }
+.tabela-docs th, .tabela-docs td { padding: 10px 14px; border-bottom: 1px solid var(--linha); text-align: left; vertical-align: top; font-size: 14.5px; }
+.tabela-docs th { white-space: nowrap; width: 1%; }
+@media (max-width: 800px) { .docs { grid-template-columns: 1fr; } .docs-indice { position: static; flex-direction: row; flex-wrap: wrap; } }
