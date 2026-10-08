@@ -1,0 +1,24 @@
+{
+  "name": "controle-fiscal-nfse",
+  "version": "1.0.0",
+  "description": "Emissor de NFS-e: Padrão Nacional (Sefin/ADN), ABRASF 2.04 e NFS-e Paulistana",
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "@xmldom/xmldom": "^0.9.12",
+    "express": "^4.22.3",
+    "fast-xml-parser": "^5.11.2",
+    "node-forge": "^1.4.0",
+    "xml-crypto": "^6.3.3"
+  }
+}

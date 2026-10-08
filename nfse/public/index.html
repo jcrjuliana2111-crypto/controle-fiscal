@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emissor de NFS-e</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a; --border: #2e3450;
+    --accent: #4f7cff; --accent2: #00d4aa; --warn: #ffb84f; --danger: #ff5f5f; --success: #4fcf8a;
+    --text: #e8ecf4; --text2: #8892aa; --text3: #4d566e; --municipal: #a78bfa;
+    --font: 'IBM Plex Sans', sans-serif; --mono: 'IBM Plex Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; font-size: 14px; }
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; align-items: center; gap: 20px; height: 64px; position: sticky; top: 0; z-index: 100; }
+  .logo { display: flex; align-items: center; gap: 12px; font-family: var(--mono); font-size: 14px; font-weight: 600; letter-spacing: .04em; }
+  .logo-icon { width: 32px; height: 32px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .header-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  nav.tabs { display: flex; gap: 4px; margin-left: 24px; }
+  nav.tabs button { background: none; border: none; color: var(--text2); padding: 8px 14px; white-space: nowrap; border-radius: 8px; cursor: pointer; font: 600 13px var(--font); }
+  nav.tabs button.on, nav.tabs button:hover { color: var(--text); background: var(--surface2); }
+  main { padding: 28px 32px; max-width: 1400px; margin: 0 auto; }
+  section.view { display: none; } section.view.on { display: block; }
+  h2 { font-size: 18px; margin-bottom: 4px; } .sub { color: var(--text2); font-size: 13px; margin-bottom: 20px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
+  .card h3 { font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--text2); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px 14px; }
+  .c2 { grid-column: span 2; } .c3 { grid-column: span 3; } .c4 { grid-column: span 4; } .c6 { grid-column: span 6; } .c8 { grid-column: span 8; } .c12 { grid-column: span 12; }
+  label { display: block; font-size: 11px; color: var(--text2); margin-bottom: 5px; font-weight: 500; }
+  input, select, textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: var(--text); font: 14px var(--font); outline: none; transition: border-color .2s; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 90px; }
+  input[type=checkbox] { width: auto; margin-right: 6px; accent-color: var(--accent); }
+  .chk { display: flex; align-items: center; font-size: 13px; color: var(--text); margin-top: 22px; cursor: pointer; }
+  .hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+  .btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 9px 18px; border-radius: 8px; font: 600 13px var(--font); cursor: pointer; border: none; transition: all .2s; white-space: nowrap; }
+  .btn-primary { background: var(--accent); color: #fff; } .btn-primary:hover { background: #3a6aff; }
+  .btn-success { background: var(--accent2); color: #062b23; } .btn-success:hover { filter: brightness(1.1); }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text2); } .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); } .btn-danger:hover { background: var(--danger); color: #fff; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
+  .btn:disabled { opacity: .5; cursor: wait; }
+  .actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+
+  .layout-emitir { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; }
+  .resumo { position: sticky; top: 84px; }
+  .resumo .linha { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px dashed var(--border); font-size: 13px; }
+  .resumo .linha span:last-child { font-family: var(--mono); }
+  .resumo .total { font-size: 18px; font-weight: 700; border: none; padding-top: 12px; }
+  .resumo .total span:last-child { color: var(--accent2); }
+
+  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font: 600 11px var(--mono); white-space: nowrap; border: 1px solid; }
+  .b-ok { color: var(--success); background: rgba(79,207,138,.12); border-color: rgba(79,207,138,.3); }
+  .b-err { color: var(--danger); background: rgba(255,95,95,.12); border-color: rgba(255,95,95,.3); }
+  .b-warn { color: var(--warn); background: rgba(255,184,79,.12); border-color: rgba(255,184,79,.3); }
+  .b-info { color: var(--accent); background: rgba(79,124,255,.12); border-color: rgba(79,124,255,.3); }
+  .b-mun { color: var(--municipal); background: rgba(167,139,250,.12); border-color: rgba(167,139,250,.3); }
+  .b-mute { color: var(--text2); background: var(--surface2); border-color: var(--border); }
+
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead { background: var(--surface2); }
+  th { padding: 12px 14px; text-align: left; font: 600 10px var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--text2); white-space: nowrap; }
+  td { padding: 11px 14px; border-top: 1px solid var(--border); vertical-align: middle; }
+  tr:hover td { background: rgba(79,124,255,.04); }
+  td.num { font-family: var(--mono); text-align: right; white-space: nowrap; }
+  .mono { font-family: var(--mono); font-size: 12px; }
+  .empty { text-align: center; padding: 48px; color: var(--text3); }
+  .toolbar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .toolbar select, .toolbar input { width: auto; min-width: 180px; }
+
+  .msgs { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; border-left: 3px solid; background: var(--surface2); }
+  .msg.err { border-color: var(--danger); } .msg.ok { border-color: var(--success); } .msg.warn { border-color: var(--warn); }
+  .msg code { font-family: var(--mono); color: var(--text2); margin-right: 6px; }
+
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.65); display: none; align-items: flex-start; justify-content: center; z-index: 200; padding: 40px 16px; overflow-y: auto; }
+  .modal-bg.on { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 760px; padding: 24px; }
+  .modal h3 { font-size: 16px; margin-bottom: 16px; }
+  pre.xml { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px; font: 12px/1.5 var(--mono); color: var(--text2); max-height: 60vh; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border); border-left: 3px solid var(--accent); padding: 12px 18px; border-radius: 8px; z-index: 300; max-width: 420px; font-size: 13px; display: none; }
+  .toast.on { display: block; } .toast.err { border-left-color: var(--danger); } .toast.ok { border-left-color: var(--success); }
+  details summary { cursor: pointer; color: var(--text2); font-size: 13px; margin-bottom: 10px; }
+  .prov-box { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--text2); }
+
+  @media (max-width: 1000px) {
+    .layout-emitir { grid-template-columns: 1fr; } .resumo { position: static; }
+    .c2, .c3, .c4 { grid-column: span 6; } .c6, .c8 { grid-column: span 12; }
+    header { padding: 0 16px; height: auto; flex-wrap: wrap; padding-top: 10px; padding-bottom: 10px; }
+    nav.tabs { margin-left: 0; order: 3; width: 100%; overflow-x: auto; }
+    main { padding: 20px 16px; }
+  }
+  @media (max-width: 560px) { .c2, .c3, .c4, .c6 { grid-column: span 12; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><div class="logo-icon">🧾</div>EMISSOR NFS-e</div>
+  <nav class="tabs">
+    <button data-view="emitir" class="on">Emitir nota</button>
+    <button data-view="notas">Notas emitidas</button>
+    <button data-view="prestadores">Prestadores</button>
+    <button data-view="municipios">Municípios</button>
+  </nav>
+  <div class="header-right">
+    <button class="btn btn-outline btn-sm" onclick="definirToken()" title="Token de acesso à API">🔑 Token</button>
+  </div>
+</header>
+
+<main>
+<!-- ============================ EMITIR ============================ -->
+<section class="view on" id="v-emitir">
+  <h2>Emitir NFS-e</h2>
+  <p class="sub">Portal Nacional (Sefin/ADN) ou webservice próprio da prefeitura — o provedor é escolhido automaticamente pelo município do prestador.</p>
+  <div class="layout-emitir">
+    <div>
+      <div class="card">
+        <h3>Prestador</h3>
+        <div class="grid">
+          <div class="c8"><label>Empresa emitente</label><select id="e-prestador" onchange="aoTrocarPrestador()"></select></div>
+          <div class="c4"><label>Competência</label><input type="date" id="e-competencia"></div>
+        </div>
+        <div class="prov-box" id="e-provedor"></div>
+      </div>
+
+      <div class="card">
+        <h3>Tomador do serviço</h3>
+        <div class="grid">
+          <div class="c3"><label>Tipo</label>
+            <select id="t-tipo" onchange="aoTrocarTipoTomador()">
+              <option value="PJ">Pessoa jurídica</option><option value="PF">Pessoa física</option>
+              <option value="EXT">Exterior</option><option value="NI">Não identificado</option>
+            </select></div>
+          <div class="c3 t-br"><label id="t-doc-lbl">CNPJ</label><input id="t-documento" placeholder="00.000.000/0000-00"></div>
+          <div class="c3 t-ext" style="display:none"><label>NIF</label><input id="t-nif"></div>
+          <div class="c6 t-id"><label>Nome / razão social</label><input id="t-nome"></div>
+          <div class="c3 t-id"><label>Inscrição municipal</label><input id="t-im"></div>
+          <div class="c3 t-id"><label>E-mail</label><input id="t-email" type="email"></div>
+          <div class="c3 t-id"><label>Telefone</label><input id="t-fone"></div>
+          <div class="c3 t-id"><label>CEP</label><input id="t-cep" onblur="buscarCep()" placeholder="00000-000"></div>
+          <div class="c6 t-id"><label>Logradouro</label><input id="t-logradouro"></div>
+          <div class="c2 t-id"><label>Número</label><input id="t-numero"></div>
+          <div class="c4 t-id"><label>Complemento</label><input id="t-complemento"></div>
+          <div class="c4 t-id"><label>Bairro</label><input id="t-bairro"></div>
+          <div class="c3 t-id"><label>Cód. IBGE município</label><input id="t-codmun" maxlength="7"></div>
+          <div class="c1 t-id" style="grid-column:span 1"><label>UF</label><input id="t-uf" maxlength="2"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Serviço</h3>
+        <div class="grid">
+          <div class="c3"><label>Item LC 116/2003</label><input id="s-item" placeholder="01.07" oninput="sugerirCTribNac()"></div>
+          <div class="c3"><label>Cód. tributação nacional</label><input id="s-ctribnac" placeholder="010701" maxlength="6"><div class="hint">Item + subitem + desdobro (6 dígitos)</div></div>
+          <div class="c3"><label>Cód. tributação municipal</label><input id="s-ctribmun"></div>
+          <div class="c3"><label>Código NBS</label><input id="s-nbs" placeholder="opcional"></div>
+          <div class="c3 sp-only" style="display:none"><label>Cód. serviço (SP)</label><input id="s-codsp" placeholder="02919" maxlength="5"></div>
+          <div class="c3 sp-only" style="display:none"><label>Tributação (SP)</label>
+            <select id="s-tribsp"><option value="T">T – Tributado em SP</option><option value="F">F – Fora de SP</option><option value="I">I – Isento</option><option value="J">J – ISS suspenso</option></select></div>
+          <div class="c3 abrasf-only" style="display:none"><label>CNAE</label><input id="s-cnae"></div>
+          <div class="c3"><label>Município da prestação (IBGE)</label><input id="s-munprest" maxlength="7" placeholder="padrão: do prestador"></div>
+          <div class="c12"><label>Discriminação do serviço</label><textarea id="s-discriminacao" maxlength="2000"></textarea></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Valores e tributos</h3>
+        <div class="grid">
+          <div class="c3"><label>Valor do serviço (R$)</label><input id="v-servico" type="number" step="0.01" min="0" oninput="recalcular()"></div>
+          <div class="c3"><label>Deduções</label><input id="v-deducoes" type="number" step="0.01" min="0" oninput="recalcular()"></div>
+          <div class="c3"><label>Desconto incondicionado</label><input id="v-descinc" type="number" step="0.01" min="0" oninput="recalcular()"></div>
+          <div class="c3"><label>Desconto condicionado</label><input id="v-desccond" type="number" step="0.01" min="0" oninput="recalcular()"></div>
+          <div class="c3"><label>Alíquota ISS (%)</label><input id="v-aliquota" type="number" step="0.01" min="0" max="5" oninput="recalcular()"></div>
+          <div class="c3"><label>Tributação do ISSQN</label>
+            <select id="v-tribissqn"><option value="1">Operação tributável</option><option value="2">Imunidade</option><option value="3">Exportação de serviço</option><option value="4">Não incidência</option></select></div>
+          <div class="c3"><label class="chk"><input type="checkbox" id="v-issretido" onchange="recalcular()">ISS retido pelo tomador</label></div>
+          <div class="c3"><label class="chk"><input type="checkbox" id="v-piscofinsret" onchange="recalcular()">PIS/COFINS retidos</label></div>
+          <div class="c2"><label>PIS</label><input id="v-pis" type="number" step="0.01" min="0" oninput="recalcular()"></div>
+          <div class="c2"><label>COFINS</label><input id="v-cofins" type="number" step="0.01" min="0" oninput="recalcular()"></div>
+          <div class="c2"><label>INSS</label><input id="v-inss" type="number" step="0.01" min="0" oninput="recalcular()"></div>
+          <div class="c2"><label>IRRF</label><input id="v-ir" type="number" step="0.01" min="0" oninput="recalcular()"></div>
+          <div class="c2"><label>CSLL</label><input id="v-csll" type="number" step="0.01" min="0" oninput="recalcular()"></div>
+          <div class="c2"><label>Outras retenções</label><input id="v-outras" type="number" step="0.01" min="0" oninput="recalcular()"></div>
+        </div>
+        <details style="margin-top:16px" class="nac-only">
+          <summary>IBS / CBS — Reforma Tributária (opcional, Padrão Nacional)</summary>
+          <div class="grid">
+            <div class="c3"><label>cClassTrib</label><input id="i-cclasstrib" placeholder="000001" maxlength="6"><div class="hint">CST = 3 primeiros dígitos</div></div>
+            <div class="c3"><label>Indicador da operação (cIndOp)</label><input id="i-cindop" maxlength="6"></div>
+            <div class="c3"><label>Finalidade (finNFSe)</label><select id="i-finnfse"><option value="0">0 – Normal</option></select></div>
+            <div class="c3"><label>Destinatário (indDest)</label><select id="i-inddest"><option value="0">0 – O próprio tomador</option><option value="1">1 – Outro destinatário</option></select></div>
+          </div>
+        </details>
+      </div>
+      <div id="e-msgs" class="msgs"></div>
+    </div>
+
+    <aside class="card resumo">
+      <h3>Resumo</h3>
+      <div id="resumo"></div>
+      <div class="actions" style="margin-top:18px;justify-content:stretch">
+        <button class="btn btn-outline" style="flex:1" onclick="previsualizar()">Ver XML</button>
+        <button class="btn btn-success" style="flex:1" id="btn-emitir" onclick="emitir()">Emitir NFS-e</button>
+      </div>
+      <button class="btn btn-outline btn-sm" style="width:100%;margin-top:10px;justify-content:center" onclick="limparFormulario()">Limpar formulário</button>
+    </aside>
+  </div>
+</section>
+
+<!-- ============================ NOTAS ============================ -->
+<section class="view" id="v-notas">
+  <h2>Notas emitidas</h2>
+  <p class="sub">Consulte a situação, cancele, baixe o XML ou imprima o DANFSe.</p>
+  <div class="toolbar">
+    <select id="f-prestador" onchange="carregarNotas()"></select>
+    <select id="f-status" onchange="carregarNotas()">
+      <option value="">Todos os status</option><option value="autorizada">Autorizada</option><option value="rejeitada">Rejeitada</option>
+      <option value="processando">Processando</option><option value="cancelada">Cancelada</option><option value="validada">Validada (teste)</option>
+    </select>
+    <input id="f-busca" placeholder="🔍 Tomador, número, chave..." oninput="renderNotas()" style="flex:1">
+    <button class="btn btn-outline" onclick="exportarCsv()">↓ CSV</button>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Status</th><th>Número</th><th>RPS/DPS</th><th>Prestador</th><th>Tomador</th><th>Competência</th><th style="text-align:right">Valor</th><th style="text-align:right">ISS</th><th>Provedor</th><th>Ações</th></tr></thead>
+    <tbody id="tb-notas"></tbody>
+  </table></div>
+</section>
+
+<!-- ============================ PRESTADORES ============================ -->
+<section class="view" id="v-prestadores">
+  <div style="display:flex;align-items:flex-start;gap:12px"><div style="flex:1"><h2>Prestadores</h2>
+  <p class="sub">Empresas emitentes, regime tributário, numeração de RPS/DPS e certificado digital A1.</p></div>
+  <button class="btn btn-primary" onclick="abrirPrestador()">+ Novo prestador</button></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Empresa</th><th>CNPJ/CPF</th><th>Município</th><th>Provedor</th><th>Ambiente</th><th>Próx. nº</th><th>Certificado</th><th>Ações</th></tr></thead>
+    <tbody id="tb-prestadores"></tbody>
+  </table></div>
+</section>
+
+<!-- ============================ MUNICÍPIOS ============================ -->
+<section class="view" id="v-municipios">
+  <div style="display:flex;align-items:flex-start;gap:12px"><div style="flex:1"><h2>Municípios com sistema próprio</h2>
+  <p class="sub">Municípios fora desta lista emitem pelo <b>Padrão Nacional</b>. Cadastre aqui as prefeituras que mantêm webservice próprio (ABRASF ou específico).</p></div>
+  <button class="btn btn-primary" onclick="abrirMunicipio()">+ Cadastrar município</button></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>IBGE</th><th>Município</th><th>Provedor</th><th>Leiaute</th><th>Homologação</th><th>Produção</th><th>Ações</th></tr></thead>
+    <tbody id="tb-municipios"></tbody>
+  </table></div>
+</section>
+</main>
+
+<!-- ============================ MODAIS ============================ -->
+<div class="modal-bg" id="m-prestador"><div class="modal">
+  <h3 id="mp-titulo">Prestador</h3>
+  <input type="hidden" id="p-id">
+  <div class="grid">
+    <div class="c8"><label>Razão social</label><input id="p-razao"></div>
+    <div class="c4"><label>CNPJ / CPF</label><input id="p-doc"></div>
+    <div class="c4"><label>Inscrição municipal</label><input id="p-im"></div>
+    <div class="c4"><label>Município</label><input id="p-municipio"></div>
+    <div class="c2"><label>UF</label><input id="p-uf" maxlength="2"></div>
+    <div class="c2"><label>IBGE</label><input id="p-codmun" maxlength="7"></div>
+    <div class="c6"><label>E-mail</label><input id="p-email"></div>
+    <div class="c6"><label>Telefone</label><input id="p-fone"></div>
+    <div class="c4"><label>Simples Nacional</label>
+      <select id="p-opsimp" onchange="document.getElementById('p-regsn-box').style.display=this.value==='3'?'':'none'">
+        <option value="1">Não optante</option><option value="2">MEI</option><option value="3">Optante ME/EPP</option></select></div>
+    <div class="c4" id="p-regsn-box" style="display:none"><label>Apuração SN</label>
+      <select id="p-regsn"><option value="1">Tributos federais e municipal pelo SN</option><option value="2">Federais pelo SN, ISS fora do SN</option><option value="3">Federais e ISS fora do SN</option></select></div>
+    <div class="c4"><label>Regime especial</label>
+      <select id="p-regesp"><option value="0">Nenhum</option><option value="1">Ato cooperado</option><option value="2">Estimativa</option><option value="3">Microempresa municipal</option><option value="4">Notário/registrador</option><option value="5">Profissional autônomo</option><option value="6">Sociedade de profissionais</option></select></div>
+    <div class="c3"><label>Série RPS/DPS</label><input id="p-serie"></div>
+    <div class="c3"><label>Próximo número</label><input id="p-prox" type="number" min="1"></div>
+    <div class="c3"><label>Ambiente</label><select id="p-ambiente"><option value="homologacao">Homologação</option><option value="producao">Produção</option></select></div>
+    <div class="c3"><label>Provedor</label><select id="p-provedor"><option value="auto">Automático (pelo município)</option></select></div>
+    <div class="c3"><label>Alíquota ISS padrão (%)</label><input id="p-aliq" type="number" step="0.01"></div>
+    <div class="c3"><label>Item LC 116 padrão</label><input id="p-item"></div>
+    <div class="c3"><label>Cód. trib. nacional padrão</label><input id="p-ctribnac" maxlength="6"></div>
+  </div>
+  <div class="card" style="margin-top:16px;background:var(--surface2)">
+    <h3>Certificado digital A1 (.pfx)</h3>
+    <div id="p-certinfo" class="hint" style="margin-bottom:10px"></div>
+    <div class="grid">
+      <div class="c6"><input type="file" id="p-pfx" accept=".pfx,.p12"></div>
+      <div class="c4"><input type="password" id="p-senha" placeholder="Senha do certificado"></div>
+      <div class="c2"><button class="btn btn-outline" style="width:100%" onclick="enviarCertificado()">Instalar</button></div>
+    </div>
+    <div class="hint">O certificado é gravado cifrado (AES-256-GCM) no servidor e nunca é devolvido pela API.</div>
+  </div>
+  <div class="actions" style="margin-top:18px">
+    <button class="btn btn-outline" onclick="fechar('m-prestador')">Fechar</button>
+    <button class="btn btn-primary" onclick="salvarPrestador()">Salvar</button>
+  </div>
+</div></div>
+
+<div class="modal-bg" id="m-municipio"><div class="modal">
+  <h3>Município com sistema próprio</h3>
+  <div class="grid">
+    <div class="c3"><label>Código IBGE</label><input id="m-codigo" maxlength="7"></div>
+    <div class="c6"><label>Nome</label><input id="m-nome"></div>
+    <div class="c3"><label>UF</label><input id="m-uf" maxlength="2"></div>
+    <div class="c6"><label>Provedor</label><select id="m-provedor" onchange="document.getElementById('m-preset-box').style.display=this.value==='abrasf'?'':'none'"></select></div>
+    <div class="c6" id="m-preset-box"><label>Leiaute ABRASF</label><select id="m-preset"></select></div>
+    <div class="c12"><label>URL do webservice — homologação</label><input id="m-url-h" placeholder="https://..."></div>
+    <div class="c12"><label>URL do webservice — produção</label><input id="m-url-p" placeholder="https://..."></div>
+    <div class="c12"><label>Observação</label><input id="m-obs"></div>
+    <div class="c12"><label>Opções avançadas (JSON) — sobrescrevem o leiaute: nsServico, soapAction, soapVersion, tagTomador, algoritmo…</label><textarea id="m-opcoes" style="min-height:70px;font-family:var(--mono);font-size:12px" placeholder='{"soapVersion": "1.2"}'></textarea></div>
+  </div>
+  <div class="actions" style="margin-top:18px">
+    <button class="btn btn-outline" onclick="fechar('m-municipio')">Fechar</button>
+    <button class="btn btn-primary" onclick="salvarMunicipio()">Salvar</button>
+  </div>
+</div></div>
+
+<div class="modal-bg" id="m-cancelar"><div class="modal" style="max-width:520px">
+  <h3>Cancelar NFS-e</h3>
+  <input type="hidden" id="c-id">
+  <div class="grid">
+    <div class="c12"><label>Motivo</label><select id="c-codigo"></select></div>
+    <div class="c12"><label>Justificativa (mín. 15 caracteres)</label><textarea id="c-motivo" maxlength="255"></textarea></div>
+  </div>
+  <div class="hint" style="margin-top:8px">Atenção: o cancelamento é definitivo e depende dos prazos da legislação do município.</div>
+  <div class="actions" style="margin-top:18px">
+    <button class="btn btn-outline" onclick="fechar('m-cancelar')">Voltar</button>
+    <button class="btn btn-danger" onclick="confirmarCancelamento()">Cancelar nota</button>
+  </div>
+</div></div>
+
+<div class="modal-bg" id="m-xml"><div class="modal" style="max-width:960px">
+  <h3 id="x-titulo">XML</h3>
+  <pre class="xml" id="x-conteudo"></pre>
+  <div class="actions" style="margin-top:14px"><button class="btn btn-outline" onclick="fechar('m-xml')">Fechar</button></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ----------------------------------------------------------------- infra
+const API = location.protocol.startsWith('http') ? '/api' : 'http://127.0.0.1:3333/api';
+let token = '';
+try { token = localStorage.getItem('nfse-token') || ''; } catch {}
+
+async function api(caminho, opts = {}) {
+  const r = await fetch(API + caminho, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(opts.headers || {}) },
+    body: opts.body && typeof opts.body !== 'string' ? JSON.stringify(opts.body) : opts.body,
+  });
+  if (r.status === 204) return null;
+  const dados = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(dados.erro || `HTTP ${r.status}`); e.dados = dados; throw e; }
+  return dados;
+}
+function urlComToken(caminho) { return API + caminho + (token ? (caminho.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token) : ''); }
+function definirToken() {
+  const t = prompt('Token de acesso à API (NFSE_API_TOKEN). Deixe vazio se o servidor não exige.', token);
+  if (t === null) return;
+  token = t.trim();
+  try { localStorage.setItem('nfse-token', token); } catch {}
+  iniciar();
+}
+
+const $ = (id) => document.getElementById(id);
+const val = (id) => $(id).value.trim();
+const num = (id) => Number($(id).value || 0);
+const h = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const brl = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtDoc = (d = '') => d.length === 14 ? d.replace(/^(.{2})(.{3})(.{3})(.{4})(.{2})$/, '$1.$2.$3/$4-$5') : d.length === 11 ? d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4') : d;
+
+function toast(msg, tipo = '') {
+  const t = $('toast'); t.textContent = msg; t.className = 'toast on ' + tipo;
+  clearTimeout(t._t); t._t = setTimeout(() => t.className = 'toast', 5000);
+}
+function abrir(id) { $(id).classList.add('on'); }
+function fechar(id) { $(id).classList.remove('on'); }
+document.querySelectorAll('.modal-bg').forEach((m) => m.addEventListener('click', (e) => { if (e.target === m) m.classList.remove('on'); }));
+
+document.querySelectorAll('nav.tabs button').forEach((b) => b.addEventListener('click', () => mostrar(b.dataset.view)));
+function mostrar(view) {
+  document.querySelectorAll('nav.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.view === view));
+  document.querySelectorAll('section.view').forEach((s) => s.classList.toggle('on', s.id === 'v-' + view));
+  if (view === 'notas') carregarNotas();
+  if (view === 'prestadores') carregarPrestadores();
+  if (view === 'municipios') carregarMunicipios();
+  try { localStorage.setItem('nfse-view', view); } catch {}
+}
+
+const STATUS = {
+  autorizada: ['b-ok', 'Autorizada'], rejeitada: ['b-err', 'Rejeitada'], processando: ['b-warn', 'Processando'],
+  cancelada: ['b-mute', 'Cancelada'], validada: ['b-info', 'Validada (teste)'],
+};
+const badgeStatus = (s) => { const [c, t] = STATUS[s] || ['b-mute', s]; return `<span class="badge ${c}">${h(t)}</span>`; };
+const NOMES_PROV = { nacional: 'Nacional', abrasf: 'ABRASF', 'sao-paulo': 'Paulistana' };
+const badgeProv = (p) => `<span class="badge ${p === 'nacional' ? 'b-info' : 'b-mun'}">${h(NOMES_PROV[p] || p)}</span>`;
+
+let info = {}, prestadores = [], notas = [], municipios = {}, provedorAtual = null;
+
+async function iniciar() {
+  try {
+    info = await api('/info');
+    $('p-provedor').innerHTML = '<option value="auto">Automático (pelo município)</option>' + info.provedores.map((p) => `<option value="${p.id}">${h(p.nome)}</option>`).join('');
+    $('m-provedor').innerHTML = info.provedores.map((p) => `<option value="${p.id}">${h(p.nome)}</option>`).join('');
+    $('m-preset').innerHTML = info.presetsAbrasf.map((p) => `<option value="${p.id}">${h(p.nome)}</option>`).join('');
+    $('c-codigo').innerHTML = Object.entries(info.motivosCancelamento).map(([k, v]) => `<option value="${k}">${k} – ${h(v)}</option>`).join('');
+    await carregarPrestadores();
+    let v = 'emitir'; try { v = localStorage.getItem('nfse-view') || v; } catch {}
+    mostrar(v);
+  } catch (e) {
+    toast(e.message.includes('Token') ? 'Informe o token de acesso (🔑).' : 'Servidor do emissor indisponível: ' + e.message, 'err');
+  }
+}
+
+// ----------------------------------------------------------------- emitir
+function aoTrocarTipoTomador() {
+  const t = val('t-tipo');
+  document.querySelectorAll('.t-id').forEach((e) => e.style.display = t === 'NI' ? 'none' : '');
+  document.querySelectorAll('.t-br').forEach((e) => e.style.display = t === 'PJ' || t === 'PF' ? '' : 'none');
+  document.querySelectorAll('.t-ext').forEach((e) => e.style.display = t === 'EXT' ? '' : 'none');
+  $('t-doc-lbl').textContent = t === 'PF' ? 'CPF' : 'CNPJ';
+}
+
+async function aoTrocarPrestador() {
+  const p = prestadores.find((x) => x.id === val('e-prestador'));
+  $('e-provedor').innerHTML = '';
+  if (!p) return;
+  if (!$('v-aliquota').value && p.aliquotaPadrao) $('v-aliquota').value = p.aliquotaPadrao;
+  if (!$('s-item').value && p.itemListaPadrao) $('s-item').value = p.itemListaPadrao;
+  if (!$('s-ctribnac').value && p.codigoTributacaoNacionalPadrao) $('s-ctribnac').value = p.codigoTributacaoNacionalPadrao;
+  else sugerirCTribNac();
+  try {
+    provedorAtual = await api(`/prestadores/${p.id}/provedor`);
+    const cert = p.certificado
+      ? `<span class="badge ${new Date(p.certificado.validoAte) < new Date(Date.now() + 30 * 864e5) ? 'b-warn' : 'b-ok'}">Certificado até ${new Date(p.certificado.validoAte).toLocaleDateString('pt-BR')}</span>`
+      : '<span class="badge b-err">Sem certificado</span>';
+    $('e-provedor').innerHTML = `${badgeProv(provedorAtual.provedorEfetivo)} <span>${h(provedorAtual.nomeProvedor)}</span>
+      <span class="badge ${p.ambiente === 'producao' ? 'b-warn' : 'b-mute'}">${p.ambiente === 'producao' ? 'PRODUÇÃO' : 'Homologação'}</span> ${cert}
+      <span>Próxima: série ${h(p.serie)} nº ${h(p.proximoNumero)}</span>`;
+    const prov = provedorAtual.provedorEfetivo;
+    document.querySelectorAll('.sp-only').forEach((e) => e.style.display = prov === 'sao-paulo' ? '' : 'none');
+    document.querySelectorAll('.abrasf-only').forEach((e) => e.style.display = prov === 'abrasf' ? '' : 'none');
+    document.querySelectorAll('.nac-only').forEach((e) => e.style.display = prov === 'nacional' ? '' : 'none');
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+function sugerirCTribNac() {
+  const d = val('s-item').replace(/\D/g, '');
+  if (d.length >= 3 && !$('s-ctribnac').dataset.manual && !$('s-ctribnac').value.startsWith(d.padStart(4, '0'))) $('s-ctribnac').value = d.padStart(4, '0') + '01';
+}
+$('s-ctribnac').addEventListener('input', () => $('s-ctribnac').dataset.manual = '1');
+
+async function buscarCep() {
+  const cep = val('t-cep').replace(/\D/g, '');
+  if (cep.length !== 8) return;
+  try {
+    const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`).then((x) => x.json());
+    if (r.erro) return;
+    if (!val('t-logradouro')) $('t-logradouro').value = r.logradouro || '';
+    if (!val('t-bairro')) $('t-bairro').value = r.bairro || '';
+    $('t-codmun').value = r.ibge || ''; $('t-uf').value = r.uf || '';
+  } catch { /* sem internet: preenchimento manual */ }
+}
+
+function coletarNota() {
+  const tipo = val('t-tipo');
+  const ibs = val('i-cclasstrib');
+  return {
+    prestadorId: val('e-prestador'),
+    competencia: val('e-competencia'),
+    tomador: tipo === 'NI' ? { tipo } : {
+      tipo, documento: val('t-documento'), nif: val('t-nif'), nome: val('t-nome'), inscricaoMunicipal: val('t-im'),
+      email: val('t-email'), fone: val('t-fone'),
+      endereco: { cep: val('t-cep'), logradouro: val('t-logradouro'), numero: val('t-numero'), complemento: val('t-complemento'),
+        bairro: val('t-bairro'), codigoMunicipio: val('t-codmun'), uf: val('t-uf').toUpperCase() },
+    },
+    servico: {
+      itemListaServico: val('s-item'), codigoTributacaoNacional: val('s-ctribnac'), codigoTributacaoMunicipal: val('s-ctribmun'),
+      codigoNbs: val('s-nbs'), codigoServicoMunicipal: val('s-codsp'), tributacaoSp: val('s-tribsp'), cnae: val('s-cnae'),
+      municipioPrestacao: val('s-munprest'), discriminacao: $('s-discriminacao').value.trim(),
+    },
+    valores: {
+      servico: num('v-servico'), deducoes: num('v-deducoes'), descontoIncondicionado: num('v-descinc'), descontoCondicionado: num('v-desccond'),
+      aliquotaIss: num('v-aliquota'), tributacaoIssqn: Number(val('v-tribissqn')), issRetido: $('v-issretido').checked,
+      pisCofinsRetido: $('v-piscofinsret').checked,
+      pis: num('v-pis'), cofins: num('v-cofins'), inss: num('v-inss'), ir: num('v-ir'), csll: num('v-csll'), outrasRetencoes: num('v-outras'),
+    },
+    ibsCbs: ibs ? { cClassTrib: ibs, cIndOp: val('i-cindop'), finNFSe: Number(val('i-finnfse')), indDest: Number(val('i-inddest')) } : undefined,
+  };
+}
+
+let calcTimer;
+function recalcular() {
+  clearTimeout(calcTimer);
+  calcTimer = setTimeout(async () => {
+    try { renderResumo(await api('/calcular', { method: 'POST', body: coletarNota().valores })); } catch {}
+  }, 150);
+}
+function renderResumo(c) {
+  const l = (a, b, cls = '') => `<div class="linha ${cls}"><span>${a}</span><span>${b}</span></div>`;
+  $('resumo').innerHTML =
+    l('Valor do serviço', brl(c.valorServico)) +
+    (c.deducoes ? l('(−) Deduções', brl(c.deducoes)) : '') +
+    (c.descontoIncondicionado ? l('(−) Desc. incondicionado', brl(c.descontoIncondicionado)) : '') +
+    l('Base de cálculo', brl(c.baseCalculo)) +
+    l(`ISS (${Number(c.aliquotaIss || 0).toFixed(2)}%)`, brl(c.valorIss)) +
+    (c.valorIssRetido ? l('(−) ISS retido', brl(c.valorIssRetido)) : '') +
+    (c.retencoesFederais ? l('(−) Retenções federais', brl(c.retencoesFederais)) : '') +
+    (c.outrasRetencoes ? l('(−) Outras retenções', brl(c.outrasRetencoes)) : '') +
+    (c.descontoCondicionado ? l('(−) Desc. condicionado', brl(c.descontoCondicionado)) : '') +
+    l('Valor líquido', brl(c.valorLiquido), 'total');
+}
+
+function mostrarMensagens(alvo, msgs, tipo) {
+  $(alvo).innerHTML = (msgs || []).map((m) =>
+    `<div class="msg ${tipo}">${m.codigo ? `<code>${h(m.codigo)}</code>` : ''}${h(m.mensagem)}${m.correcao ? `<div class="hint">${h(m.correcao)}</div>` : ''}</div>`).join('');
+}
+
+async function previsualizar() {
+  try {
+    const r = await api('/notas/previsualizar', { method: 'POST', body: coletarNota() });
+    $('x-titulo').textContent = `XML — ${r.provedor} (${r.ambiente})${r.assinado ? ' · assinado' : ' · sem assinatura (cadastre o certificado)'}`;
+    $('x-conteudo').textContent = formatarXml(r.xml);
+    abrir('m-xml');
+  } catch (e) { erroForm(e); }
+}
+
+async function emitir() {
+  const p = prestadores.find((x) => x.id === val('e-prestador'));
+  if (p?.ambiente === 'producao' && !confirm('Emitir NFS-e em PRODUÇÃO (com valor fiscal)?')) return;
+  const b = $('btn-emitir'); b.disabled = true; b.textContent = 'Transmitindo…';
+  $('e-msgs').innerHTML = '';
+  try {
+    const n = await api('/notas', { method: 'POST', body: coletarNota() });
+    if (n.status === 'autorizada') {
+      mostrarMensagens('e-msgs', [{ mensagem: `NFS-e nº ${n.numero} autorizada${n.chaveAcesso ? ' — chave ' + n.chaveAcesso : ''}${n.codigoVerificacao ? ' — verificação ' + n.codigoVerificacao : ''}.` }, ...n.mensagens], 'ok');
+      toast('NFS-e autorizada!', 'ok');
+    } else if (n.status === 'validada') {
+      mostrarMensagens('e-msgs', n.mensagens, 'ok');
+    } else if (n.status === 'processando') {
+      mostrarMensagens('e-msgs', [{ mensagem: 'Sem resposta definitiva do fisco. Use "Consultar" em Notas emitidas antes de reenviar.' }, ...n.mensagens], 'warn');
+    } else {
+      mostrarMensagens('e-msgs', n.mensagens.length ? n.mensagens : [{ mensagem: 'Nota rejeitada.' }], 'err');
+      toast('Nota rejeitada — veja as mensagens.', 'err');
+    }
+    await carregarPrestadores(); aoTrocarPrestador();
+  } catch (e) { erroForm(e); }
+  finally { b.disabled = false; b.textContent = 'Emitir NFS-e'; }
+}
+function erroForm(e) {
+  mostrarMensagens('e-msgs', e.dados?.erros?.length ? e.dados.erros : [{ mensagem: e.message }], 'err');
+  toast(e.message, 'err');
+}
+function limparFormulario() {
+  document.querySelectorAll('#v-emitir input:not([type=checkbox]), #v-emitir textarea').forEach((i) => i.value = '');
+  document.querySelectorAll('#v-emitir input[type=checkbox]').forEach((i) => i.checked = false);
+  delete $('s-ctribnac').dataset.manual;
+  $('e-competencia').value = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
+  $('e-msgs').innerHTML = '';
+  aoTrocarPrestador(); recalcular();
+}
+
+function formatarXml(xml) {
+  let pad = 0;
+  return xml.replace(/>\s*</g, '>\n<').split('\n').map((l) => {
+    if (/^<\/\w/.test(l)) pad = Math.max(0, pad - 1);
+    const out = '  '.repeat(pad) + l;
+    if (/^<\w[^>]*[^/]>$/.test(l) && !/^<\?/.test(l)) pad++;
+    return out;
+  }).join('\n');
+}
+
+// ----------------------------------------------------------------- notas
+async function carregarNotas() {
+  const q = new URLSearchParams();
+  if (val('f-prestador')) q.set('prestadorId', val('f-prestador'));
+  if (val('f-status')) q.set('status', val('f-status'));
+  try { notas = await api('/notas?' + q); renderNotas(); } catch (e) { toast(e.message, 'err'); }
+}
+function renderNotas() {
+  const busca = val('f-busca').toLowerCase();
+  const lista = notas.filter((n) => !busca || [n.numero, n.tomador?.nome, n.tomador?.documento, n.chaveAcesso, n.prestadorNome, n.numeroRps]
+    .some((x) => String(x || '').toLowerCase().includes(busca)));
+  $('tb-notas').innerHTML = lista.length ? lista.map((n) => `<tr>
+    <td>${badgeStatus(n.status)}${n.ambiente !== 'producao' ? ' <span class="badge b-mute">HML</span>' : ''}
+      ${n.mensagens?.length && n.status !== 'autorizada' ? `<div class="hint" title="${h(n.mensagens.map((m) => m.mensagem).join(' | '))}">${h((n.mensagens[0].codigo ? n.mensagens[0].codigo + ' ' : '') + n.mensagens[0].mensagem).slice(0, 70)}</div>` : ''}</td>
+    <td class="mono">${h(n.numero || '—')}</td>
+    <td class="mono">${h(n.serie)}/${h(n.numeroRps)}</td>
+    <td>${h(n.prestadorNome)}</td>
+    <td>${h(n.tomador?.nome || 'Não identificado')}<div class="hint">${h(fmtDoc(n.tomador?.documento || ''))}</div></td>
+    <td class="mono">${h(n.competencia || '')}</td>
+    <td class="num">${brl(n.calculo?.valorServico)}</td>
+    <td class="num">${brl(n.calculo?.valorIss)}</td>
+    <td>${badgeProv(n.provedor)}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-outline btn-sm" onclick="consultarNota('${n.id}')" title="Consultar situação no fisco">↻</button>
+      ${n.status === 'autorizada' || n.status === 'cancelada' ? `<a class="btn btn-outline btn-sm" target="_blank" href="${urlComToken(`/notas/${n.id}/${n.provedor === 'nacional' ? 'danfse' : 'espelho'}`)}">${n.provedor === 'nacional' ? 'DANFSe' : 'Imprimir'}</a>` : ''}
+      <a class="btn btn-outline btn-sm" href="${urlComToken(`/notas/${n.id}/xml`)}">XML</a>
+      ${n.status === 'autorizada' ? `<button class="btn btn-danger btn-sm" onclick="abrirCancelamento('${n.id}')">Cancelar</button>` : ''}
+    </td></tr>`).join('') : '<tr><td colspan="10" class="empty">Nenhuma nota encontrada.</td></tr>';
+}
+async function consultarNota(id) {
+  try {
+    const r = await api(`/notas/${id}/consultar`, { method: 'POST' });
+    toast(`Situação: ${STATUS[r.status]?.[1] || r.status}${r.mensagens?.[0] ? ' — ' + r.mensagens[0].mensagem : ''}`, r.status === 'autorizada' ? 'ok' : '');
+    carregarNotas();
+  } catch (e) { toast(e.message, 'err'); }
+}
+function abrirCancelamento(id) { $('c-id').value = id; $('c-motivo').value = ''; abrir('m-cancelar'); }
+async function confirmarCancelamento() {
+  try {
+    const r = await api(`/notas/${val('c-id')}/cancelar`, { method: 'POST', body: { codigo: Number(val('c-codigo')), motivo: val('c-motivo') } });
+    if (r.sucesso) { toast('Nota cancelada.', 'ok'); fechar('m-cancelar'); }
+    else toast('Cancelamento recusado: ' + (r.mensagens?.map((m) => m.mensagem).join(' | ') || 'sem detalhes'), 'err');
+    carregarNotas();
+  } catch (e) { toast(e.message, 'err'); }
+}
+function exportarCsv() {
+  const q = new URLSearchParams();
+  if (val('f-prestador')) q.set('prestadorId', val('f-prestador'));
+  if (val('f-status')) q.set('status', val('f-status'));
+  location.href = urlComToken('/notas.csv?' + q);
+}
+
+// ----------------------------------------------------------------- prestadores
+async function carregarPrestadores() {
+  prestadores = await api('/prestadores');
+  const atual = val('e-prestador');
+  $('e-prestador').innerHTML = prestadores.length
+    ? prestadores.map((p) => `<option value="${p.id}">${h(p.razaoSocial)} — ${h(fmtDoc(p.documento))}</option>`).join('')
+    : '<option value="">Cadastre um prestador na aba "Prestadores"</option>';
+  if (atual) $('e-prestador').value = atual;
+  $('f-prestador').innerHTML = '<option value="">Todos os prestadores</option>' + prestadores.map((p) => `<option value="${p.id}">${h(p.razaoSocial)}</option>`).join('');
+  $('tb-prestadores').innerHTML = prestadores.length ? prestadores.map((p) => {
+    const venc = p.certificado && new Date(p.certificado.validoAte);
+    return `<tr>
+      <td><b>${h(p.razaoSocial)}</b><div class="hint">IM ${h(p.inscricaoMunicipal || '—')}</div></td>
+      <td class="mono">${h(fmtDoc(p.documento))}</td>
+      <td>${h(p.municipio || '')}/${h(p.uf || '')}<div class="hint mono">${h(p.codigoMunicipio)}</div></td>
+      <td>${p.provedor === 'auto' || !p.provedor ? '<span class="badge b-mute">Automático</span>' : badgeProv(p.provedor)}</td>
+      <td>${p.ambiente === 'producao' ? '<span class="badge b-warn">Produção</span>' : '<span class="badge b-mute">Homologação</span>'}</td>
+      <td class="mono">${h(p.serie)}/${h(p.proximoNumero)}</td>
+      <td>${venc ? `<span class="badge ${venc < new Date() ? 'b-err' : venc < new Date(Date.now() + 30 * 864e5) ? 'b-warn' : 'b-ok'}">até ${venc.toLocaleDateString('pt-BR')}</span>` : '<span class="badge b-err">Não instalado</span>'}</td>
+      <td style="white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="abrirPrestador('${p.id}')">Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="removerPrestador('${p.id}')">Excluir</button></td></tr>`;
+  }).join('') : '<tr><td colspan="8" class="empty">Nenhum prestador cadastrado.</td></tr>';
+  if (!atual && prestadores.length) aoTrocarPrestador();
+}
+const CAMPOS_P = { 'p-razao': 'razaoSocial', 'p-doc': 'documento', 'p-im': 'inscricaoMunicipal', 'p-municipio': 'municipio', 'p-uf': 'uf',
+  'p-codmun': 'codigoMunicipio', 'p-email': 'email', 'p-fone': 'fone', 'p-opsimp': 'opSimpNac', 'p-regsn': 'regApTribSN', 'p-regesp': 'regEspTrib',
+  'p-serie': 'serie', 'p-prox': 'proximoNumero', 'p-ambiente': 'ambiente', 'p-provedor': 'provedor', 'p-aliq': 'aliquotaPadrao',
+  'p-item': 'itemListaPadrao', 'p-ctribnac': 'codigoTributacaoNacionalPadrao' };
+function abrirPrestador(id) {
+  const p = prestadores.find((x) => x.id === id) || { opSimpNac: 1, regApTribSN: 1, regEspTrib: 0, serie: '1', proximoNumero: 1, ambiente: 'homologacao', provedor: 'auto' };
+  $('p-id').value = p.id || '';
+  $('mp-titulo').textContent = p.id ? 'Editar prestador' : 'Novo prestador';
+  for (const [el, k] of Object.entries(CAMPOS_P)) $(el).value = p[k] ?? '';
+  $('p-regsn-box').style.display = String(p.opSimpNac) === '3' ? '' : 'none';
+  $('p-certinfo').innerHTML = p.certificado
+    ? `<b>${h(p.certificado.titular)}</b> · ${h(p.certificado.documento)} · válido até ${new Date(p.certificado.validoAte).toLocaleDateString('pt-BR')} · ${h(p.certificado.emissor)}${p.certificado.aviso ? `<div style="color:var(--warn)">${h(p.certificado.aviso)}</div>` : ''}`
+    : p.id ? 'Nenhum certificado instalado.' : 'Salve o prestador antes de instalar o certificado.';
+  $('p-pfx').value = ''; $('p-senha').value = '';
+  abrir('m-prestador');
+}
+async function salvarPrestador() {
+  const dados = {};
+  for (const [el, k] of Object.entries(CAMPOS_P)) dados[k] = val(el);
+  for (const k of ['opSimpNac', 'regApTribSN', 'regEspTrib', 'proximoNumero']) dados[k] = Number(dados[k] || 0);
+  dados.aliquotaPadrao = dados.aliquotaPadrao ? Number(dados.aliquotaPadrao) : undefined;
+  dados.uf = dados.uf.toUpperCase();
+  try {
+    const id = val('p-id');
+    const p = await api(id ? `/prestadores/${id}` : '/prestadores', { method: id ? 'PUT' : 'POST', body: dados });
+    $('p-id').value = p.id;
+    toast('Prestador salvo.', 'ok');
+    await carregarPrestadores();
+    abrirPrestador(p.id);
+  } catch (e) { toast(e.message, 'err'); }
+}
+async function enviarCertificado() {
+  const id = val('p-id'); const f = $('p-pfx').files[0];
+  if (!id) return toast('Salve o prestador primeiro.', 'err');
+  if (!f) return toast('Selecione o arquivo .pfx.', 'err');
+  const buf = new Uint8Array(await f.arrayBuffer());
+  let bin = ''; for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192));
+  try {
+    await api(`/prestadores/${id}/certificado`, { method: 'POST', body: { pfxBase64: btoa(bin), senha: $('p-senha').value } });
+    toast('Certificado instalado.', 'ok');
+    await carregarPrestadores(); abrirPrestador(id);
+  } catch (e) { toast(e.message, 'err'); }
+}
+async function removerPrestador(id) {
+  if (!confirm('Excluir este prestador? As notas emitidas continuam no histórico.')) return;
+  await api(`/prestadores/${id}`, { method: 'DELETE' }); carregarPrestadores();
+}
+
+// ----------------------------------------------------------------- municípios
+async function carregarMunicipios() {
+  municipios = await api('/municipios');
+  const linhas = Object.entries(municipios);
+  $('tb-municipios').innerHTML = `<tr><td class="mono">demais</td><td>Todos os outros municípios</td><td>${badgeProv('nacional')}</td><td>DPS v1.01</td><td class="mono hint">sefin.producaorestrita.nfse.gov.br</td><td class="mono hint">sefin.nfse.gov.br</td><td></td></tr>` +
+    linhas.map(([cod, m]) => `<tr>
+      <td class="mono">${h(cod)}</td><td>${h(m.nome)}/${h(m.uf)}${m.observacao ? `<div class="hint">${h(m.observacao)}</div>` : ''}</td>
+      <td>${badgeProv(m.provedor)}</td><td>${h(m.preset || (m.provedor === 'sao-paulo' ? 'Paulistana v1' : '—'))}</td>
+      <td class="mono hint" style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${h(m.urls?.homologacao || (m.provedor === 'sao-paulo' ? 'TesteEnvioLoteRPS' : '—'))}</td>
+      <td class="mono hint" style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${h(m.urls?.producao || (m.provedor === 'sao-paulo' ? 'nfe.prefeitura.sp.gov.br' : '—'))}</td>
+      <td style="white-space:nowrap"><button class="btn btn-outline btn-sm" onclick="abrirMunicipio('${cod}')">Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="removerMunicipio('${cod}')">Remover</button></td></tr>`).join('');
+}
+function abrirMunicipio(cod) {
+  const m = (cod && municipios[cod]) || { provedor: 'abrasf', preset: 'abrasf-2.04' };
+  $('m-codigo').value = cod || ''; $('m-codigo').disabled = !!cod;
+  $('m-nome').value = m.nome || ''; $('m-uf').value = m.uf || '';
+  $('m-provedor').value = m.provedor; $('m-preset').value = m.preset || 'abrasf-2.04';
+  $('m-preset-box').style.display = m.provedor === 'abrasf' ? '' : 'none';
+  $('m-url-h').value = m.urls?.homologacao || ''; $('m-url-p').value = m.urls?.producao || '';
+  $('m-obs').value = m.observacao || ''; $('m-opcoes').value = m.opcoes ? JSON.stringify(m.opcoes, null, 2) : '';
+  abrir('m-municipio');
+}
+async function salvarMunicipio() {
+  let opcoes;
+  try { opcoes = val('m-opcoes') ? JSON.parse(val('m-opcoes')) : undefined; } catch { return toast('Opções avançadas: JSON inválido.', 'err'); }
+  const dados = { nome: val('m-nome'), uf: val('m-uf').toUpperCase(), provedor: val('m-provedor'),
+    preset: val('m-provedor') === 'abrasf' ? val('m-preset') : undefined,
+    urls: { homologacao: val('m-url-h') || undefined, producao: val('m-url-p') || undefined },
+    observacao: val('m-obs') || undefined, opcoes };
+  try { await api(`/municipios/${val('m-codigo')}`, { method: 'PUT', body: dados }); toast('Município salvo.', 'ok'); fechar('m-municipio'); carregarMunicipios(); }
+  catch (e) { toast(e.message, 'err'); }
+}
+async function removerMunicipio(cod) {
+  if (!confirm('Remover o cadastro? O município passará a emitir pelo Padrão Nacional.')) return;
+  await api(`/municipios/${cod}`, { method: 'DELETE' }); carregarMunicipios();
+}
+
+aoTrocarTipoTomador();
+$('e-competencia').value = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
+renderResumo({});
+iniciar();
+</script>
+</body>
+</html>

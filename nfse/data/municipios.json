@@ -1,0 +1,9 @@
+{
+  "_comentario": "Municípios com sistema próprio de NFS-e. Qualquer município não listado aqui usa o Padrão Nacional (Emissor Nacional/Sefin). Para cadastrar uma prefeitura ABRASF, informe o preset e as URLs do webservice (homologação e produção) conforme o manual da prefeitura — pela tela 'Municípios' ou editando este arquivo.",
+  "3550308": {
+    "nome": "São Paulo",
+    "uf": "SP",
+    "provedor": "sao-paulo",
+    "observacao": "NFS-e Paulistana, leiaute v1. Sem ambiente de homologação: em 'homologação' o sistema usa o TesteEnvioLoteRPS (valida sem gerar nota)."
+  }
+}
