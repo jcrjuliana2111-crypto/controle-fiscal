@@ -194,7 +194,13 @@
       for (const m of f.matchAll(/(?<![a-z])V\s*\.?\s*(\d{2})[/.-]?(\d{2})[/.-]?(\d{2}|\d{4})(?!\d)/gi)) {
         const d = parseData(`${m[1]}/${m[2]}/${m[3]}`); if (valido(d)) vencimentos.add(d);
       }
-      const semVenc = f.replace(/(?<![a-z])V\s*\.?\s*\d{2}[/.-]?\d{2}[/.-]?\d{2,4}(?!\d)/gi, ' ');
+      // "Vencimento: 05/10/2026" / "Data de vencimento 05.10.26"
+      for (const m of f.matchAll(/venc(?:imento)?[^\d\n]{0,15}(\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{2})(?!\d)/gi)) {
+        const d = parseData(`${m[1]}/${m[2]}/${m[3]}`); if (valido(d)) vencimentos.add(d);
+      }
+      const semVenc = f
+        .replace(/venc(?:imento)?[^\d\n]{0,15}\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}(?!\d)/gi, ' ')
+        .replace(/(?<![a-z])V\s*\.?\s*\d{2}[/.-]?\d{2}[/.-]?\d{2,4}(?!\d)/gi, ' ');
       for (const m of semVenc.matchAll(/(?<![\d/.-])(\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{2})(?![\d/])/g)) {
         const d = parseData(`${m[1]}/${m[2]}/${m[3]}`); if (valido(d)) datas.add(d);
       }

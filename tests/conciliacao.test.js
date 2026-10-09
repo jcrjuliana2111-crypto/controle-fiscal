@@ -125,3 +125,28 @@ test('comprovante sem data e sem nome só é ligado se não houver ambiguidade',
   assert.deepStrictEqual(C.casarComprovantes([par('m1', 'Ana')], c), { m1: 'c' });
   assert.deepStrictEqual(C.casarComprovantes([par('m1', 'Ana'), par('m2', 'Bia')], c), {});
 });
+
+test('nome do arquivo + texto do PDF juntos', () => {
+  // fornecedor pago com atraso: vencimento 05/10 (nome e texto), pago 09/10
+  const forn = C.dadosComprovante(
+    'Comprovante de pagamento de boleto\nBeneficiário: F F DISTRIBUIDORA DE PRODUTOS LTDA\n' +
+    'Data de vencimento: 05/10/2026\nData do pagamento: 09/10/2026\nValor do documento: R$ 964,62\nValor pago: R$ 964,62',
+    'FORNECEDOR F F DISTRIBUIDORA DE PRODUTOS R$ 964,62 V 051026.pdf');
+  assert.deepStrictEqual(forn.valores, [96462]);
+  assert.deepStrictEqual(forn.vencimentos, ['2026-10-05']);
+  assert.deepStrictEqual(forn.datas, ['2026-10-09']);
+
+  // PIX: nome do arquivo com favorecido/descrição, data só no texto do PDF
+  const pix = C.dadosComprovante('Pix enviado\n06/10/2026 - 10:42\nValor R$ 490,00\nPara ALANA GONCALVES RODRIGUES',
+    'FAVORECIDO ALANA GONCALVES RODRIGUES R$ 490,00 PIX ENVIADO - FOLHA MULTI AGO 26.pdf');
+  assert.deepStrictEqual(pix.valores, [49000]);
+  assert.deepStrictEqual(pix.datas, ['2026-10-06']);
+
+  const pares = [
+    { movimento: { id: 'b1', data: '2026-10-09', valor: -964.62, historico: 'PAG BOLETO' },
+      parcela: { nome: 'F F Distribuidora de Produtos', descricao: 'NF 1234', vencimento: '2026-10-05' } },
+    { movimento: { id: 'p1', data: '2026-10-06', valor: -490, historico: 'PIX ENVIADO ALANA' },
+      parcela: { nome: 'Alana Goncalves Rodrigues', descricao: 'FOLHA MULTI AGO 26', vencimento: '2026-10-05' } }
+  ];
+  assert.deepStrictEqual(C.casarComprovantes(pares, [{ id: 'f', ...forn }, { id: 'x', ...pix }]), { b1: 'f', p1: 'x' });
+});

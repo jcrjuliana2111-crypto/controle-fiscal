@@ -46,6 +46,12 @@ passa por IA — a leitura é feita no seu navegador:
    | PIX | `FAVORECIDO: ALANA GONCALVES RODRIGUES` · `VALOR R$ 490,00` · `TIPO: PIX ENVIADO` · `FOLHA MULTI AGO 26` | valor + nome do favorecido + descrição igual à do Conta Azul |
    | Fornecedor | `FORNECEDOR: F F DISTRIBUIDORA DE PRODUTOS` · `VALOR: R$ 964,62` · `VENCIMENTO: V 051026` | valor + nome + vencimento (`V ddmmaa` = 05/10/2026) comparado com o vencimento da parcela |
 
+   O robô junta o que encontra **no nome do arquivo e no texto do PDF**. Ex.:
+   arquivo `FORNECEDOR F F DISTRIBUIDORA R$ 964,62 V 051026.pdf` cujo PDF diz
+   `Data de vencimento: 05/10/2026` e `Data do pagamento: 09/10/2026` — o
+   vencimento vem do `V 051026` e/ou da linha "vencimento"; a data de
+   pagamento vem do texto.
+
    Regras: o **valor** tem que aparecer no comprovante; se houver `V ddmmaa`,
    ele precisa bater com o vencimento do lançamento (±3 dias); se houver data
    de pagamento, ela precisa estar a ±3 dias da data no banco. Entre opções de
