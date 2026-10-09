@@ -1,4 +1,4 @@
-// node --test tests/
+// node --test tests/*.test.js
 const test = require('node:test');
 const assert = require('node:assert');
 const C = require('../conciliacao-core.js');

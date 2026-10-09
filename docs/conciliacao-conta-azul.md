@@ -84,5 +84,5 @@ faça login no Conta Azul e autorize. O token é renovado automaticamente.
 ## Testes
 
 ```bash
-node --test tests/
+node --test tests/*.test.js
 ```
