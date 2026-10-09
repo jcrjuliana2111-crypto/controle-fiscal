@@ -1,0 +1,107 @@
+# Receitas de RPA do Domínio — MODELOS PARA CALIBRAR.
+#
+# Menus, títulos de janela e atalhos variam com a versão/instalação do Domínio.
+# Para calibrar:
+#   1. Abra a tela no Domínio e rode:  python -m robo_dominio mapear --janela "Domínio"
+#      O arquivo mapa_controles.txt mostra title / auto_id / control_type de cada campo.
+#   2. Ajuste os passos abaixo.
+#   3. Teste uma receita isolada, pedindo confirmação a cada passo:
+#      python -m robo_dominio receita importar_xml --empresa 123 --competencia 2026-09 --passo-a-passo
+#
+# Se o Domínio roda por acesso remoto (Domínio Web/Terminal Server) o Windows não
+# enxerga os campos: use só "teclas", "digitar" sem controle e "clicar_imagem".
+#
+# Nomes reservados usados pelo ciclo:
+#   login, trocar_empresa, importar_xml, gerar_<obrigacao>, transmitir_<obrigacao>
+# (<obrigacao> em minúsculas: efd_icms_ipi, efd_contrib, efd_reinf, esocial, destda, gia, iss ...)
+
+login:
+  - acao: abrir
+  - acao: se_janela
+    janela: "(?i)conex|login|usu[aá]rio"
+    timeout: 10
+    entao:
+      - {acao: digitar, texto: "${usuario}", descricao: "usuário"}
+      - {acao: teclas, valor: "{TAB}"}
+      - {acao: digitar, texto: "${senha}", descricao: "senha"}
+      - {acao: teclas, valor: "{ENTER}"}
+  - acao: focar
+    janela: "Domínio"
+    timeout: 120
+
+trocar_empresa:
+  - {acao: focar, janela: "Domínio"}
+  - {acao: teclas, valor: "{F8}", descricao: "abre Troca de empresa (F8)"}
+  - {acao: esperar_janela, janela: "(?i)troca.*empresa|empresas", timeout: 20}
+  - {acao: digitar, texto: "${codigo}", descricao: "código da empresa"}
+  - {acao: teclas, valor: "{ENTER}"}
+  - acao: se_janela                     # aviso de "período/competência" ou mensagens da empresa
+    janela: "(?i)aviso|aten[cç][aã]o|mensagem"
+    timeout: 3
+    entao:
+      - {acao: teclas, valor: "{ENTER}"}
+  - {acao: focar, janela: "Domínio"}
+
+importar_xml:
+  # Escrita Fiscal: importação de NF-e por XML. AJUSTE o caminho do menu ao da sua versão.
+  - {acao: focar, janela: "Domínio"}
+  - {acao: menu, caminho: "Utilitários->Importação->Importação de NF-e (XML)", descricao: "abre a importação de XML"}
+  - {acao: esperar_janela, janela: "(?i)importa", timeout: 30}
+  - {acao: focar, janela: "(?i)importa"}
+  - {acao: digitar, texto: "${pasta_xml}", descricao: "pasta dos XMLs"}
+  - {acao: teclas, valor: "{TAB}"}
+  - {acao: digitar, texto: "${data_inicial}"}
+  - {acao: teclas, valor: "{TAB}"}
+  - {acao: digitar, texto: "${data_final}"}
+  - {acao: teclas, valor: "%i", descricao: "Importar (Alt+I)"}
+  - {acao: esperar_janela, janela: "(?i)processando|importando", sumir: true, timeout: 1800}
+  - {acao: print, nome: "importacao_${codigo}_${ano}${mes}"}
+  - acao: se_janela
+    janela: "(?i)aviso|conclu|finaliz"
+    timeout: 10
+    entao:
+      - {acao: teclas, valor: "{ENTER}"}
+  - {acao: teclas, valor: "{ESC}"}
+
+gerar_efd_icms_ipi:
+  - {acao: focar, janela: "Domínio"}
+  - {acao: menu, caminho: "Relatórios->Informativos->Estaduais->SPED Fiscal - EFD ICMS/IPI", descricao: "abre a geração da EFD ICMS/IPI"}
+  - {acao: esperar_janela, janela: "(?i)efd|sped", timeout: 30}
+  - {acao: focar, janela: "(?i)efd|sped"}
+  - {acao: digitar, texto: "${data_inicial}"}
+  - {acao: teclas, valor: "{TAB}"}
+  - {acao: digitar, texto: "${data_final}"}
+  - {acao: teclas, valor: "{TAB}"}
+  - {acao: digitar, texto: "${arquivo_saida}", descricao: "arquivo de saída"}
+  - {acao: teclas, valor: "%o", descricao: "OK (Alt+O)"}
+  - {acao: esperar_arquivo, caminho: "${arquivo_saida}", timeout: 1800}
+  - {acao: print, nome: "efd_icms_ipi_${codigo}_${ano}${mes}"}
+  - {acao: teclas, valor: "{ESC}"}
+
+gerar_efd_contrib:
+  - {acao: focar, janela: "Domínio"}
+  - {acao: menu, caminho: "Relatórios->Informativos->Federais->EFD Contribuições", descricao: "abre a geração da EFD Contribuições"}
+  - {acao: esperar_janela, janela: "(?i)contribui", timeout: 30}
+  - {acao: focar, janela: "(?i)contribui"}
+  - {acao: digitar, texto: "${data_inicial}"}
+  - {acao: teclas, valor: "{TAB}"}
+  - {acao: digitar, texto: "${data_final}"}
+  - {acao: teclas, valor: "{TAB}"}
+  - {acao: digitar, texto: "${arquivo_saida}"}
+  - {acao: teclas, valor: "%o"}
+  - {acao: esperar_arquivo, caminho: "${arquivo_saida}", timeout: 1800}
+  - {acao: print, nome: "efd_contrib_${codigo}_${ano}${mes}"}
+  - {acao: teclas, valor: "{ESC}"}
+
+# Transmissões pelo próprio Domínio (só rodam com entrega.permitir_transmissao_automatica: true)
+transmitir_efd_reinf:
+  - {acao: focar, janela: "Domínio"}
+  - {acao: menu, caminho: "Arquivo->EFD-Reinf->Central de Transmissão", descricao: "abre a central da EFD-Reinf"}
+  - {acao: esperar_janela, janela: "(?i)reinf", timeout: 30}
+  - {acao: focar, janela: "(?i)reinf"}
+  - {acao: digitar, texto: "${mes}/${ano}", descricao: "competência"}
+  - {acao: teclas, valor: "{TAB}"}
+  - {acao: pausa_manual, mensagem: "Confira os eventos listados e selecione o certificado"}
+  - {acao: teclas, valor: "%e", descricao: "Enviar (Alt+E)"}
+  - {acao: esperar_janela, janela: "(?i)enviando|transmitindo", sumir: true, timeout: 900}
+  - {acao: print, nome: "reinf_${codigo}_${ano}${mes}"}

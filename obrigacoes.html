@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Obrigações</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a; --border: #2e3450;
+    --accent: #4f7cff; --accent2: #00d4aa; --warn: #ffb84f; --danger: #ff5f5f; --success: #4fcf8a;
+    --text: #e8ecf4; --text2: #8892aa; --text3: #4d566e;
+    --federal: #4f7cff; --municipal: #a78bfa; --estadual: #00d4aa;
+    --font: 'IBM Plex Sans', sans-serif; --mono: 'IBM Plex Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px;
+    display: flex; align-items: center; gap: 20px; height: 64px; position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; font-family: var(--mono); font-size: 14px; font-weight: 600; letter-spacing: .04em; }
+  .logo-icon { width: 32px; height: 32px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  nav { display: flex; gap: 4px; margin-left: 12px; }
+  nav a, nav button {
+    background: none; border: none; color: var(--text2); font: 500 13px var(--font); padding: 8px 14px;
+    border-radius: 8px; cursor: pointer; text-decoration: none;
+  }
+  nav a:hover, nav button:hover { color: var(--text); background: var(--surface2); }
+  nav .ativo { color: var(--text); background: var(--surface2); }
+  .header-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+
+  main { padding: 28px 32px; max-width: 1600px; margin: 0 auto; }
+  .aba { display: none; }
+  .aba.ativa { display: block; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; cursor: pointer; transition: border-color .2s; }
+  .stat:hover, .stat.sel { border-color: var(--accent); }
+  .stat-label { font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--text2); margin-bottom: 8px; }
+  .stat-value { font: 700 26px var(--mono); }
+
+  .toolbar { display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
+  input[type=text], input[type=month], input[type=date], input[type=number], select, textarea {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px;
+    color: var(--text); font: 14px var(--font); outline: none; color-scheme: dark;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  .toolbar input[type=text] { flex: 1; min-width: 200px; }
+
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; font: 600 13px var(--font); cursor: pointer; border: none; transition: all .2s; white-space: nowrap; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #3a6aff; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text2); }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+  .btn-sm { padding: 5px 9px; font-size: 12px; border-radius: 6px; }
+
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead { background: var(--surface2); }
+  th { padding: 12px 14px; text-align: left; font: 600 10px var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--text2); white-space: nowrap; }
+  td { padding: 11px 14px; border-top: 1px solid var(--border); vertical-align: middle; }
+  tr:hover td { background: rgba(79,124,255,.04); }
+  .sub { color: var(--text2); font-size: 11px; font-family: var(--mono); }
+  .vazio { text-align: center; padding: 48px; color: var(--text3); }
+
+  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font: 600 11px var(--mono); white-space: nowrap; border: 1px solid transparent; }
+  .b-federal { background: rgba(79,124,255,.15); color: var(--federal); border-color: rgba(79,124,255,.3); }
+  .b-estadual { background: rgba(0,212,170,.15); color: var(--estadual); border-color: rgba(0,212,170,.3); }
+  .b-municipal { background: rgba(167,139,250,.15); color: var(--municipal); border-color: rgba(167,139,250,.3); }
+  .s-pendente { background: rgba(136,146,170,.12); color: var(--text2); border-color: rgba(136,146,170,.3); }
+  .s-importado, .s-gerado { background: rgba(79,124,255,.15); color: var(--accent); border-color: rgba(79,124,255,.3); }
+  .s-conferido { background: rgba(0,212,170,.15); color: var(--accent2); border-color: rgba(0,212,170,.3); }
+  .s-divergente, .s-erro { background: rgba(255,95,95,.15); color: var(--danger); border-color: rgba(255,95,95,.35); }
+  .s-transmitido { background: rgba(79,207,138,.15); color: var(--success); border-color: rgba(79,207,138,.35); }
+  .s-alerta { background: rgba(255,184,79,.12); color: var(--warn); border-color: rgba(255,184,79,.35); }
+  .s-dispensada { background: transparent; color: var(--text3); border-color: var(--border); }
+
+  .etapas { display: flex; gap: 4px; }
+  .etapa { width: 26px; height: 22px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font: 600 10px var(--mono); background: var(--surface2); color: var(--text3); border: 1px solid var(--border); }
+  .etapa.ok { background: rgba(79,207,138,.15); color: var(--success); border-color: rgba(79,207,138,.35); }
+  .etapa.alerta { background: rgba(255,184,79,.15); color: var(--warn); border-color: rgba(255,184,79,.35); }
+  .etapa.erro { background: rgba(255,95,95,.15); color: var(--danger); border-color: rgba(255,95,95,.35); }
+  .prazo-vencido { color: var(--danger); font-weight: 600; }
+  .prazo-proximo { color: var(--warn); font-weight: 600; }
+  .prazo-ok { color: var(--text2); }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 820px; max-height: 92vh; overflow-y: auto; padding: 26px; }
+  .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 18px; display: flex; gap: 10px; align-items: center; }
+  .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label.lbl { font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--text2); }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+  .checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+  .check { display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+  .check input[type=number] { width: 64px; padding: 4px 6px; margin-left: auto; font-size: 12px; }
+  .secao { font: 600 12px var(--mono); color: var(--text2); text-transform: uppercase; letter-spacing: .08em; margin: 20px 0 10px; }
+
+  .apontamento { display: flex; gap: 10px; padding: 8px 10px; border-radius: 8px; background: var(--bg); margin-bottom: 6px; font-size: 13px; align-items: flex-start; }
+  .apontamento .badge { flex-shrink: 0; }
+  .kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+  .kv div { background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+  .kv b { display: block; font: 600 10px var(--mono); color: var(--text2); text-transform: uppercase; margin-bottom: 3px; }
+  .log { font: 12px var(--mono); color: var(--text2); }
+  .log div { padding: 4px 0; border-bottom: 1px dashed var(--border); }
+
+  .ajuda { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; line-height: 1.6; font-size: 14px; }
+  .ajuda h3 { margin: 18px 0 8px; font-size: 15px; }
+  .ajuda h3:first-child { margin-top: 0; }
+  .ajuda code, .ajuda pre { font-family: var(--mono); font-size: 12px; background: var(--bg); border-radius: 6px; }
+  .ajuda code { padding: 2px 6px; }
+  .ajuda pre { padding: 12px; overflow-x: auto; margin: 8px 0; }
+  .ajuda ol, .ajuda ul { padding-left: 22px; }
+
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; font-size: 13px; z-index: 300; display: none; max-width: 420px; }
+
+  @media (max-width: 760px) {
+    header { padding: 0 16px; gap: 8px; height: auto; min-height: 64px; flex-wrap: wrap; padding-top: 10px; padding-bottom: 10px; }
+    nav { margin-left: 0; order: 3; width: 100%; overflow-x: auto; }
+    main { padding: 18px 16px; }
+    .form-grid { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .toolbar > * { flex: 1 1 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="logo-icon">📅</div>FISCAL.CTRL</div>
+  <nav>
+    <a href="index.html">Notificações</a>
+    <button class="ativo" data-aba="entregas" onclick="trocarAba('entregas')">Obrigações</button>
+    <button data-aba="empresas" onclick="trocarAba('empresas')">Empresas</button>
+    <button data-aba="robo" onclick="trocarAba('robo')">Robô Domínio</button>
+  </nav>
+  <div class="header-right">
+    <button class="btn btn-outline" onclick="carregar()">⟳ Atualizar</button>
+  </div>
+</header>
+
+<main>
+  <!-- ============ ENTREGAS ============ -->
+  <section class="aba ativa" id="aba-entregas">
+    <div class="toolbar">
+      <input type="month" id="competencia" onchange="carregarEntregas()" title="Competência">
+      <button class="btn btn-primary" onclick="gerarCompetencia()" title="Cria as obrigações da competência para todas as empresas ativas">＋ Gerar competência</button>
+      <button class="btn btn-outline" onclick="exportarCSV()">⬇ CSV</button>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="toolbar">
+      <input type="text" id="busca" placeholder="🔍  Empresa, CNPJ, código Domínio, recibo..." oninput="renderEntregas()">
+      <select id="fObrigacao" onchange="renderEntregas()"><option value="">Todas as obrigações</option></select>
+      <select id="fStatus" onchange="renderEntregas()"><option value="">Todos os status</option></select>
+      <select id="fEsfera" onchange="renderEntregas()">
+        <option value="">Todas as esferas</option><option>Federal</option><option>Estadual</option><option>Municipal</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Empresa</th><th>Obrigação</th><th>Vencimento</th>
+          <th title="I = Importação · G = Geração · C = Conferência · E = Entrega">Etapas (I·G·C·E)</th>
+          <th>Status</th><th>Recibo</th><th></th>
+        </tr></thead>
+        <tbody id="tbEntregas"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ EMPRESAS ============ -->
+  <section class="aba" id="aba-empresas">
+    <div class="toolbar">
+      <input type="text" id="buscaEmp" placeholder="🔍  Razão social, CNPJ ou código Domínio..." oninput="renderEmpresas()">
+      <button class="btn btn-primary" onclick="abrirEmpresa()">＋ Nova empresa</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Cód. Domínio</th><th>Empresa</th><th>UF / Município</th><th>Regime</th><th>Obrigações</th><th>Responsável</th><th></th></tr></thead>
+        <tbody id="tbEmpresas"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ ROBÔ ============ -->
+  <section class="aba" id="aba-robo">
+    <div class="ajuda">
+      <h3>Como o processo funciona</h3>
+      <ol>
+        <li><b>Cadastro</b>: cada empresa aqui no painel tem o <b>código do Domínio</b>, o CNPJ e as obrigações que entrega.</li>
+        <li><b>Gerar competência</b>: cria a lista do mês, com os vencimentos.</li>
+        <li><b>Robô (no Windows, onde o Domínio está instalado)</b>, por empresa:
+          <ul>
+            <li><b>I · Importação</b>: troca de empresa no Domínio e importa os XMLs da pasta da competência;</li>
+            <li><b>G · Geração</b>: gera o arquivo de cada obrigação (SPED Fiscal, EFD Contribuições...);</li>
+            <li><b>C · Conferência</b>: valida o arquivo (estrutura, CNPJ, período, apuração, cruzamento com os XMLs). Com erro, fica <span class="badge s-divergente">divergente</span> e não segue para a entrega;</li>
+            <li><b>E · Entrega</b>: reconhece o recibo do ReceitaNet/PVA na pasta de recibos e marca como <span class="badge s-transmitido">transmitido</span>. Ele só transmite sozinho se você liberar isso no config.</li>
+          </ul>
+        </li>
+        <li>Obrigações de entrega <b>manual</b> (DCTFWeb, PGDAS-D, ISS...) recebem o recibo aqui no painel, pelo botão ✔.</li>
+      </ol>
+
+      <h3>Instalação (uma vez, na máquina do Domínio)</h3>
+<pre>1. Instale o Python 3.11+ (marque "Add to PATH")
+2. Copie a pasta robo-dominio do repositório para a máquina
+3. cd robo-dominio
+   pip install -r requirements.txt
+   copy config.exemplo.yaml config.yaml      (ajuste as pastas e o executável)
+   setx DOMINIO_SENHA "sua-senha"            (a senha não fica em arquivo)</pre>
+
+      <h3>Calibrar as telas (uma vez por versão do Domínio)</h3>
+<pre>python -m robo_dominio mapear --janela "Domínio"
+python -m robo_dominio receita trocar_empresa --empresa 123 --passo-a-passo
+python -m robo_dominio receita importar_xml  --empresa 123 --competencia 2026-09 --passo-a-passo</pre>
+      <p>As receitas ficam em <code>receitas.yaml</code>. Menus e atalhos mudam entre versões do Domínio, então ajuste cada passo até a receita rodar sozinha.</p>
+
+      <h3>Uso no dia a dia</h3>
+<pre>python -m robo_dominio ciclo --competencia 2026-09                       (todas as empresas)
+python -m robo_dominio ciclo --competencia 2026-09 --empresa 123 --empresa 456
+python -m robo_dominio ciclo --competencia 2026-09 --etapas conferir,entregar
+python -m robo_dominio ciclo --competencia 2026-09 --simular             (só mostra o que faria)
+python -m robo_dominio conferir --tipo sped_fiscal --arquivo SPED.txt --cnpj 12345678000199 --competencia 2026-09 --xml D:\XML\123\202609</pre>
+      <p>Para rodar sem ninguém por perto, agende o <code>executar_robo.bat</code> no Agendador de Tarefas do Windows. O usuário precisa estar logado com a tela desbloqueada, porque o RPA usa a tela.</p>
+
+      <h3>Vencimentos</h3>
+      <p id="regrasVenc"></p>
+    </div>
+  </section>
+</main>
+
+<!-- ============ MODAL ENTREGA ============ -->
+<div class="modal-overlay" id="mEntrega">
+  <div class="modal">
+    <div class="modal-title"><span>📄</span><span id="meTitulo"></span></div>
+    <div id="meInfo"></div>
+    <div class="secao">Atualizar</div>
+    <div class="form-grid">
+      <div class="form-group"><label class="lbl">Status</label><select id="meStatus"></select></div>
+      <div class="form-group"><label class="lbl">Vencimento</label><input type="date" id="meVenc"></div>
+      <div class="form-group"><label class="lbl">Recibo / protocolo</label><input type="text" id="meRecibo"></div>
+      <div class="form-group"><label class="lbl">Data da entrega</label><input type="date" id="meData"></div>
+      <div class="form-group"><label class="lbl">Responsável</label><input type="text" id="meResp"></div>
+      <div class="form-group full"><label class="lbl">Observação</label><textarea id="meObs" rows="2"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="fechar('mEntrega')">Fechar</button>
+      <button class="btn btn-primary" onclick="salvarEntrega()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL EMPRESA ============ -->
+<div class="modal-overlay" id="mEmpresa">
+  <div class="modal">
+    <div class="modal-title"><span>🏢</span><span id="mpTitulo">Empresa</span></div>
+    <div class="form-grid">
+      <div class="form-group"><label class="lbl">Código no Domínio *</label><input type="number" id="mpCodigo"></div>
+      <div class="form-group"><label class="lbl">CNPJ *</label><input type="text" id="mpCnpj" placeholder="00.000.000/0000-00"></div>
+      <div class="form-group full"><label class="lbl">Razão social *</label><input type="text" id="mpRazao"></div>
+      <div class="form-group"><label class="lbl">UF</label><input type="text" id="mpUf" maxlength="2"></div>
+      <div class="form-group"><label class="lbl">Município</label><input type="text" id="mpMun"></div>
+      <div class="form-group"><label class="lbl">Inscrição estadual</label><input type="text" id="mpIe"></div>
+      <div class="form-group"><label class="lbl">Regime</label>
+        <select id="mpRegime"><option value="">—</option><option>Simples Nacional</option><option>Lucro Presumido</option><option>Lucro Real</option><option>MEI</option></select>
+      </div>
+      <div class="form-group"><label class="lbl">Responsável</label><input type="text" id="mpResp"></div>
+      <div class="form-group"><label class="lbl">Situação</label>
+        <select id="mpAtivo"><option value="1">Ativa</option><option value="0">Inativa</option></select>
+      </div>
+    </div>
+    <div class="secao" style="display:flex;align-items:center;gap:10px">Obrigações <span class="sub" style="text-transform:none">(dia próprio de vencimento opcional)</span>
+      <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="sugerirObrigacoes()">Sugerir pelo regime</button>
+    </div>
+    <div class="checks" id="mpObrigacoes"></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="mpExcluir" onclick="excluirEmpresa()" style="margin-right:auto">Excluir</button>
+      <button class="btn btn-outline" onclick="fechar('mEmpresa')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarEmpresa()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PROXY = 'https://qftusjwnlyjokilcjuzb.supabase.co/functions/v1/smart-handler';
+
+// Mesmos códigos do robô (robo-dominio/robo_dominio/catalogo.py)
+// venc: dia fixo (dia) ou n-ésimo dia útil (diaUtil) ou último dia útil (ultimoUtil), "meses" após a competência.
+// ajuste: o que fazer se cair em dia não útil — "antecipa" ou "posterga".
+const CATALOGO = {
+  EFD_ICMS_IPI: { nome: 'EFD ICMS/IPI', esfera: 'Estadual', entrega: 'recibo', venc: { dia: 20, meses: 1, ajuste: 'antecipa' } },
+  EFD_CONTRIB:  { nome: 'EFD Contribuições', esfera: 'Federal', entrega: 'recibo', venc: { diaUtil: 10, meses: 2 } },
+  EFD_REINF:    { nome: 'EFD-Reinf', esfera: 'Federal', entrega: 'dominio', venc: { dia: 15, meses: 1, ajuste: 'antecipa' } },
+  ESOCIAL:      { nome: 'eSocial (fechamento)', esfera: 'Federal', entrega: 'dominio', venc: { dia: 15, meses: 1, ajuste: 'antecipa' } },
+  DCTFWEB:      { nome: 'DCTFWeb', esfera: 'Federal', entrega: 'manual', venc: { ultimoUtil: true, meses: 1 } },
+  PGDASD:       { nome: 'PGDAS-D', esfera: 'Federal', entrega: 'manual', venc: { dia: 20, meses: 1, ajuste: 'posterga' } },
+  DESTDA:       { nome: 'DeSTDA', esfera: 'Estadual', entrega: 'recibo', venc: { dia: 28, meses: 1, ajuste: 'antecipa' } },
+  GIA:          { nome: 'GIA estadual', esfera: 'Estadual', entrega: 'manual', venc: { dia: 20, meses: 1, ajuste: 'antecipa' } },
+  ISS:          { nome: 'Declaração de ISS', esfera: 'Municipal', entrega: 'manual', venc: { dia: 10, meses: 1, ajuste: 'antecipa' } },
+};
+const SUGESTAO_REGIME = {
+  'Simples Nacional': ['PGDASD', 'DESTDA', 'DCTFWEB', 'EFD_REINF', 'ESOCIAL', 'ISS'],
+  'Lucro Presumido':  ['EFD_ICMS_IPI', 'EFD_CONTRIB', 'DCTFWEB', 'EFD_REINF', 'ESOCIAL', 'ISS'],
+  'Lucro Real':       ['EFD_ICMS_IPI', 'EFD_CONTRIB', 'DCTFWEB', 'EFD_REINF', 'ESOCIAL', 'ISS'],
+  'MEI':              [],
+};
+const STATUS = {
+  pendente: 'Pendente', importado: 'Importado', gerado: 'Gerado', conferido: 'Conferido',
+  divergente: 'Divergente', erro: 'Erro no robô', transmitido: 'Transmitido', dispensada: 'Dispensada',
+};
+const ETAPAS = [['importacao', 'I', 'Importação'], ['geracao', 'G', 'Geração'], ['conferencia', 'C', 'Conferência'], ['entrega', 'E', 'Entrega']];
+
+let empresas = [], entregas = [], filtroCard = '', editEntrega = null, editEmpresa = null;
+
+// ------------------------------------------------------------------ API
+async function api(acao, corpo) {
+  const r = await fetch(PROXY, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-action': acao },
+    body: JSON.stringify(corpo),
+  });
+  const txt = await r.text();
+  if (!r.ok) throw new Error(`HTTP ${r.status}: ${txt}`);
+  return txt ? JSON.parse(txt) : null;
+}
+const getTab = (tabela, extra = {}) => api('obr-get', { tabela, ...extra });
+const upsert = (tabela, rows) => api('obr-upsert', { tabela, rows });
+const remover = (tabela, id) => api('obr-delete', { tabela, id });
+
+// ------------------------------------------------------------------ util
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const digitos = s => String(s || '').replace(/\D/g, '');
+const fmtCnpj = s => { const d = digitos(s); return d.length === 14 ? d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : (s || ''); };
+const fmtData = s => s ? s.slice(0, 10).split('-').reverse().join('/') : '';
+const fmtComp = c => c ? `${c.slice(5, 7)}/${c.slice(0, 4)}` : '';
+const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const hojeISO = () => iso(new Date());
+
+function toast(msg, erro) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = erro ? 'var(--danger)' : 'var(--border)';
+  t.style.display = 'block';
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.style.display = 'none', erro ? 7000 : 3500);
+}
+
+// ------------------------------------------------------------------ dias úteis e vencimentos
+function pascoa(ano) {
+  const a = ano % 19, b = Math.floor(ano / 100), c = ano % 100, d = Math.floor(b / 4), e = b % 4;
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const mes = Math.floor((h + l - 7 * m + 114) / 31), dia = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(ano, mes - 1, dia);
+}
+const _feriados = {};
+function feriados(ano) {
+  if (_feriados[ano]) return _feriados[ano];
+  const fixos = ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '11-20', '12-25'].map(md => `${ano}-${md}`);
+  const p = pascoa(ano);
+  const mov = [-48, -47, -2, 60].map(n => { const d = new Date(p); d.setDate(d.getDate() + n); return iso(d); }); // carnaval, sexta santa, corpus christi
+  return (_feriados[ano] = new Set([...fixos, ...mov]));
+}
+const util = d => d.getDay() !== 0 && d.getDay() !== 6 && !feriados(d.getFullYear()).has(iso(d));
+
+function vencimento(codigo, competencia, diaProprio) {
+  const regra = { ...(CATALOGO[codigo]?.venc || { dia: 20, meses: 1, ajuste: 'antecipa' }) };
+  if (diaProprio) { regra.dia = Number(diaProprio); delete regra.diaUtil; delete regra.ultimoUtil; regra.ajuste = regra.ajuste || 'antecipa'; }
+  const [ano, mes] = competencia.split('-').map(Number);
+  const base = new Date(ano, mes - 1 + regra.meses, 1);
+  if (regra.diaUtil) {
+    const d = new Date(base); let n = 0;
+    while (true) { if (util(d)) { n++; if (n === regra.diaUtil) return iso(d); } d.setDate(d.getDate() + 1); }
+  }
+  if (regra.ultimoUtil) {
+    const d = new Date(base.getFullYear(), base.getMonth() + 1, 0);
+    while (!util(d)) d.setDate(d.getDate() - 1);
+    return iso(d);
+  }
+  const ultimo = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+  const d = new Date(base.getFullYear(), base.getMonth(), Math.min(regra.dia, ultimo));
+  const passo = regra.ajuste === 'posterga' ? 1 : -1;
+  while (!util(d)) d.setDate(d.getDate() + passo);
+  return iso(d);
+}
+
+function descreverRegra(c) {
+  const v = CATALOGO[c].venc;
+  if (v.diaUtil) return `${v.diaUtil}º dia útil do ${v.meses}º mês seguinte`;
+  if (v.ultimoUtil) return `último dia útil do mês seguinte`;
+  return `dia ${v.dia} do mês seguinte (${v.ajuste === 'posterga' ? 'prorroga' : 'antecipa'} se não for dia útil)`;
+}
+
+// ------------------------------------------------------------------ carga
+function competenciaPadrao() {
+  const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+async function carregar() {
+  try {
+    empresas = await getTab('empresas') || [];
+    renderEmpresas();
+    await carregarEntregas();
+  } catch (e) {
+    console.error(e);
+    document.getElementById('tbEntregas').innerHTML = `<tr><td colspan="7" class="vazio" style="color:var(--danger)">❌ ${esc(e.message)}</td></tr>`;
+  }
+}
+
+async function carregarEntregas() {
+  const comp = document.getElementById('competencia').value;
+  document.getElementById('tbEntregas').innerHTML = `<tr><td colspan="7" class="vazio">⏳ Carregando...</td></tr>`;
+  try {
+    entregas = await getTab('entregas', { competencia: comp }) || [];
+    renderEntregas();
+  } catch (e) {
+    document.getElementById('tbEntregas').innerHTML = `<tr><td colspan="7" class="vazio" style="color:var(--danger)">❌ ${esc(e.message)}</td></tr>`;
+  }
+}
+
+// ------------------------------------------------------------------ entregas
+const empresaDe = ent => empresas.find(e => e.id === ent.empresa_id) || {};
+function diasPara(venc) {
+  if (!venc) return null;
+  const h = new Date(); h.setHours(0, 0, 0, 0);
+  return Math.round((new Date(venc + 'T00:00:00') - h) / 86400000);
+}
+const concluida = ent => ['transmitido', 'dispensada'].includes(ent.status);
+const atrasada = ent => !concluida(ent) && diasPara(ent.vencimento) !== null && diasPara(ent.vencimento) < 0;
+const proxima = ent => !concluida(ent) && diasPara(ent.vencimento) !== null && diasPara(ent.vencimento) >= 0 && diasPara(ent.vencimento) <= 5;
+
+const CARDS = [
+  ['', 'Total', 'var(--text)', () => true],
+  ['abertas', 'Em aberto', 'var(--accent)', e => !concluida(e)],
+  ['problema', 'Divergente / erro', 'var(--danger)', e => ['divergente', 'erro'].includes(e.status)],
+  ['conferido', 'Conferidas', 'var(--accent2)', e => e.status === 'conferido'],
+  ['proxima', 'Vencem em 5 dias', 'var(--warn)', proxima],
+  ['atrasada', 'Atrasadas', 'var(--danger)', atrasada],
+  ['transmitido', 'Transmitidas', 'var(--success)', e => e.status === 'transmitido'],
+];
+
+function renderStats() {
+  document.getElementById('stats').innerHTML = CARDS.map(([id, lbl, cor, fn]) => `
+    <div class="stat ${filtroCard === id ? 'sel' : ''}" onclick="filtroCard='${id}';renderEntregas()">
+      <div class="stat-label">${lbl}</div>
+      <div class="stat-value" style="color:${cor}">${entregas.filter(fn).length}</div>
+    </div>`).join('');
+}
+
+function filtradas() {
+  const busca = document.getElementById('busca').value.trim().toLowerCase();
+  const fo = document.getElementById('fObrigacao').value, fs = document.getElementById('fStatus').value, fe = document.getElementById('fEsfera').value;
+  const card = CARDS.find(c => c[0] === filtroCard)[3];
+  return entregas.filter(ent => {
+    const emp = empresaDe(ent);
+    if (!card(ent)) return false;
+    if (fo && ent.obrigacao !== fo) return false;
+    if (fs && ent.status !== fs) return false;
+    if (fe && CATALOGO[ent.obrigacao]?.esfera !== fe) return false;
+    if (busca) {
+      const alvo = [emp.razao, emp.cnpj, digitos(emp.cnpj), emp.codigo_dominio, ent.recibo, CATALOGO[ent.obrigacao]?.nome].join(' ').toLowerCase();
+      if (!alvo.includes(busca)) return false;
+    }
+    return true;
+  }).sort((a, b) => (a.vencimento || '9').localeCompare(b.vencimento || '9')
+    || String(empresaDe(a).razao).localeCompare(String(empresaDe(b).razao)));
+}
+
+function etapaHtml(ent, [chave, letra, nome]) {
+  const e = (ent.etapas || {})[chave];
+  let cls = '';
+  if (e) cls = e.status === 'ok' ? 'ok' : (e.status === 'erro' || e.status === 'divergente') ? 'erro' : 'alerta';
+  if (chave === 'conferencia' && e?.status === 'ok' && ent.conferencia?.alertas) cls = 'alerta';
+  if (chave === 'entrega' && ent.status === 'transmitido') cls = 'ok';
+  const tip = e ? `${nome}: ${e.status} — ${fmtData(e.em)} ${e.detalhe || ''}` : `${nome}: não executada`;
+  return `<span class="etapa ${cls}" title="${esc(tip)}">${letra}</span>`;
+}
+
+function prazoHtml(ent) {
+  if (!ent.vencimento) return '<span class="sub">—</span>';
+  const d = diasPara(ent.vencimento);
+  let cls = 'prazo-ok', txt = `${d} dia(s)`;
+  if (concluida(ent)) txt = ent.data_entrega ? `entregue ${fmtData(ent.data_entrega)}` : '';
+  else if (d < 0) { cls = 'prazo-vencido'; txt = `${-d} dia(s) em atraso`; }
+  else if (d === 0) { cls = 'prazo-vencido'; txt = 'vence hoje'; }
+  else if (d <= 5) cls = 'prazo-proximo';
+  return `<div class="${cls}">${fmtData(ent.vencimento)}</div><div class="sub">${txt}</div>`;
+}
+
+function renderEntregas() {
+  renderStats();
+  const lista = filtradas(), tb = document.getElementById('tbEntregas');
+  if (!lista.length) {
+    tb.innerHTML = `<tr><td colspan="7" class="vazio">${entregas.length ? 'Nenhuma obrigação neste filtro.' : 'Nenhuma obrigação nesta competência. Cadastre as empresas e clique em <b>＋ Gerar competência</b>.'}</td></tr>`;
+    return;
+  }
+  tb.innerHTML = lista.map(ent => {
+    const emp = empresaDe(ent), cat = CATALOGO[ent.obrigacao] || { nome: ent.obrigacao, esfera: '' };
+    const conf = ent.conferencia;
+    const confTxt = conf ? `<div class="sub">${conf.erros} erro(s) · ${conf.alertas} alerta(s)</div>` : '';
+    return `<tr>
+      <td><div>${esc(emp.razao || ent.empresa_id)}</div><div class="sub">${esc(emp.codigo_dominio ?? '')} · ${esc(fmtCnpj(emp.cnpj))}</div></td>
+      <td><div>${esc(cat.nome)}</div><span class="badge b-${(cat.esfera || '').toLowerCase()}">${esc(cat.esfera)}</span></td>
+      <td>${prazoHtml(ent)}</td>
+      <td><div class="etapas">${ETAPAS.map(e => etapaHtml(ent, e)).join('')}</div>${confTxt}</td>
+      <td><span class="badge s-${esc(ent.status)}">${esc(STATUS[ent.status] || ent.status)}</span></td>
+      <td><span class="sub" title="${esc(ent.recibo_arquivo || '')}">${esc(ent.recibo || '—')}</span></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-outline btn-sm" onclick="abrirEntrega('${esc(ent.id)}')" title="Detalhes e conferência">🔍</button>
+        ${concluida(ent) ? '' : `<button class="btn btn-outline btn-sm" onclick="marcarTransmitida('${esc(ent.id)}')" title="Informar recibo">✔</button>`}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function gerarCompetencia() {
+  const comp = document.getElementById('competencia').value;
+  if (!comp) return toast('Escolha a competência', true);
+  const existentes = new Set(entregas.map(e => e.id));
+  const novas = [];
+  for (const emp of empresas.filter(e => e.ativo !== false)) {
+    for (const cod of emp.obrigacoes || []) {
+      const id = `${emp.id}|${cod}|${comp}`;
+      if (existentes.has(id)) continue;
+      novas.push({
+        id, empresa_id: emp.id, obrigacao: cod, competencia: comp,
+        vencimento: vencimento(cod, comp, (emp.vencimentos || {})[cod]),
+        status: 'pendente', etapas: {}, log: [], responsavel: emp.responsavel || null,
+      });
+    }
+  }
+  if (!novas.length) return toast('Nada a gerar: todas as obrigações da competência já existem.');
+  if (!confirm(`Criar ${novas.length} obrigação(ões) para ${fmtComp(comp)}?`)) return;
+  try {
+    for (let i = 0; i < novas.length; i += 200) await upsert('entregas', novas.slice(i, i + 200));
+    toast(`${novas.length} obrigação(ões) criadas`);
+    await carregarEntregas();
+  } catch (e) { toast('Erro ao gerar: ' + e.message, true); }
+}
+
+function abrirEntrega(id) {
+  const ent = entregas.find(e => e.id === id); if (!ent) return;
+  editEntrega = ent;
+  const emp = empresaDe(ent), cat = CATALOGO[ent.obrigacao] || { nome: ent.obrigacao };
+  document.getElementById('meTitulo').textContent = `${cat.nome} · ${fmtComp(ent.competencia)} · ${emp.razao || ''}`;
+
+  let html = `<div class="kv">
+    <div><b>Empresa</b>${esc(emp.codigo_dominio ?? '')} · ${esc(fmtCnpj(emp.cnpj))}</div>
+    <div><b>Status</b><span class="badge s-${esc(ent.status)}">${esc(STATUS[ent.status] || ent.status)}</span></div>
+    <div><b>Vencimento</b>${fmtData(ent.vencimento) || '—'}</div>
+    <div><b>Entrega</b>${esc({ recibo: 'recibo automático', dominio: 'pelo Domínio', manual: 'manual' }[cat.entrega] || '')}</div>
+    ${ent.arquivo ? `<div style="grid-column:1/-1"><b>Arquivo gerado</b><span class="sub">${esc(ent.arquivo)}</span></div>` : ''}
+  </div>`;
+
+  const conf = ent.conferencia;
+  html += `<div class="secao">Conferência</div>`;
+  if (!conf) html += `<div class="sub">Ainda não conferida pelo robô.</div>`;
+  else {
+    const resumo = Object.entries(conf.resumo || {}).filter(([k]) => k !== 'arquivo');
+    if (resumo.length) html += `<div class="kv" style="margin-bottom:10px">${resumo.map(([k, v]) =>
+      `<div><b>${esc(k.replace(/_/g, ' '))}</b>${esc(/^-?\d+\.\d+$/.test(String(v)) ? Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : v)}</div>`).join('')}</div>`;
+    const ordem = { erro: 0, alerta: 1, info: 2 }, cor = { erro: 's-erro', alerta: 's-alerta', info: 's-pendente' };
+    const aps = [...(conf.apontamentos || [])].sort((a, b) => ordem[a.nivel] - ordem[b.nivel]);
+    html += aps.length ? aps.map(a => `<div class="apontamento"><span class="badge ${cor[a.nivel]}">${esc(a.nivel)}</span><div>${esc(a.mensagem)}<div class="sub">${esc(a.codigo)}</div></div></div>`).join('')
+      : `<div class="apontamento"><span class="badge s-transmitido">ok</span><div>Nenhum apontamento.</div></div>`;
+    html += `<div class="sub" style="margin-top:4px">Conferido em ${fmtData(conf.em)} ${conf.em ? conf.em.slice(11, 16) : ''}</div>`;
+  }
+
+  const log = [...(ent.log || [])].reverse();
+  if (log.length) html += `<div class="secao">Histórico do robô</div><div class="log">${log.map(l =>
+    `<div>${fmtData(l.em)} ${esc((l.em || '').slice(11, 16))} · ${esc(l.etapa)} · <b>${esc(l.status)}</b> ${esc(l.detalhe || '')}</div>`).join('')}</div>`;
+  document.getElementById('meInfo').innerHTML = html;
+
+  document.getElementById('meStatus').innerHTML = Object.entries(STATUS).map(([k, v]) => `<option value="${k}" ${k === ent.status ? 'selected' : ''}>${v}</option>`).join('');
+  document.getElementById('meVenc').value = ent.vencimento || '';
+  document.getElementById('meRecibo').value = ent.recibo || '';
+  document.getElementById('meData').value = ent.data_entrega || '';
+  document.getElementById('meResp').value = ent.responsavel || '';
+  document.getElementById('meObs').value = ent.observacao || '';
+  abrir('mEntrega');
+}
+
+async function salvarEntrega() {
+  const ent = editEntrega; if (!ent) return;
+  const status = document.getElementById('meStatus').value;
+  const recibo = document.getElementById('meRecibo').value.trim();
+  if (status === 'transmitido' && !recibo && !confirm('Marcar como transmitida sem número de recibo?')) return;
+  const novo = {
+    ...ent, status, recibo: recibo || null,
+    vencimento: document.getElementById('meVenc').value || null,
+    data_entrega: document.getElementById('meData').value || (status === 'transmitido' ? hojeISO() : null),
+    responsavel: document.getElementById('meResp').value.trim() || null,
+    observacao: document.getElementById('meObs').value.trim() || null,
+    updated_at: new Date().toISOString(),
+  };
+  if (status !== ent.status) novo.log = [...(ent.log || []), { em: new Date().toISOString(), etapa: 'painel', status, detalhe: 'alterado manualmente' }];
+  if (status === 'transmitido' && ent.status !== 'transmitido')
+    novo.etapas = { ...(ent.etapas || {}), entrega: { status: 'ok', em: new Date().toISOString(), detalhe: `Recibo ${recibo || '(não informado)'} — informado no painel` } };
+  try {
+    await upsert('entregas', [novo]);
+    Object.assign(ent, novo);
+    fechar('mEntrega'); renderEntregas(); toast('Salvo');
+  } catch (e) { toast('Erro ao salvar: ' + e.message, true); }
+}
+
+function marcarTransmitida(id) {
+  abrirEntrega(id);
+  document.getElementById('meStatus').value = 'transmitido';
+  if (!document.getElementById('meData').value) document.getElementById('meData').value = hojeISO();
+  setTimeout(() => document.getElementById('meRecibo').focus(), 50);
+}
+
+function exportarCSV() {
+  const linhas = [['Competência', 'Código Domínio', 'Empresa', 'CNPJ', 'Obrigação', 'Esfera', 'Vencimento', 'Status', 'Erros', 'Alertas', 'Recibo', 'Data entrega', 'Responsável', 'Observação']];
+  for (const ent of filtradas()) {
+    const emp = empresaDe(ent), cat = CATALOGO[ent.obrigacao] || {};
+    linhas.push([fmtComp(ent.competencia), emp.codigo_dominio ?? '', emp.razao || '', fmtCnpj(emp.cnpj), cat.nome || ent.obrigacao, cat.esfera || '',
+      fmtData(ent.vencimento), STATUS[ent.status] || ent.status, ent.conferencia?.erros ?? '', ent.conferencia?.alertas ?? '',
+      ent.recibo || '', fmtData(ent.data_entrega), ent.responsavel || '', ent.observacao || '']);
+  }
+  const csv = '\ufeff' + linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `obrigacoes_${document.getElementById('competencia').value}.csv`;
+  a.click();
+}
+
+// ------------------------------------------------------------------ empresas
+function renderEmpresas() {
+  const busca = document.getElementById('buscaEmp').value.trim().toLowerCase();
+  const lista = empresas.filter(e => !busca || [e.razao, e.cnpj, digitos(e.cnpj), e.codigo_dominio].join(' ').toLowerCase().includes(busca))
+    .sort((a, b) => (a.codigo_dominio || 0) - (b.codigo_dominio || 0));
+  const tb = document.getElementById('tbEmpresas');
+  if (!lista.length) { tb.innerHTML = `<tr><td colspan="7" class="vazio">${empresas.length ? 'Nenhuma empresa encontrada.' : 'Nenhuma empresa cadastrada. Clique em <b>＋ Nova empresa</b>.'}</td></tr>`; return; }
+  tb.innerHTML = lista.map(e => `<tr style="${e.ativo === false ? 'opacity:.5' : ''}">
+    <td style="font-family:var(--mono)">${esc(e.codigo_dominio ?? '')}</td>
+    <td><div>${esc(e.razao)}</div><div class="sub">${esc(fmtCnpj(e.cnpj))}${e.ativo === false ? ' · inativa' : ''}</div></td>
+    <td>${esc([e.uf, e.municipio].filter(Boolean).join(' / '))}</td>
+    <td>${esc(e.regime || '')}</td>
+    <td style="max-width:360px">${(e.obrigacoes || []).map(c => `<span class="badge b-${(CATALOGO[c]?.esfera || '').toLowerCase()}" style="margin:2px">${esc(CATALOGO[c]?.nome || c)}</span>`).join('')}</td>
+    <td>${esc(e.responsavel || '')}</td>
+    <td><button class="btn btn-outline btn-sm" onclick="abrirEmpresa('${esc(e.id)}')">✎</button></td>
+  </tr>`).join('');
+}
+
+function renderChecks(selecionadas, vencs) {
+  document.getElementById('mpObrigacoes').innerHTML = Object.entries(CATALOGO).map(([c, d]) => `
+    <div class="check" title="${esc(descreverRegra(c))}">
+      <label style="display:flex;gap:8px;align-items:center;cursor:pointer;flex:1">
+        <input type="checkbox" value="${c}" ${selecionadas.includes(c) ? 'checked' : ''}><span>${esc(d.nome)}</span>
+      </label>
+      <input type="number" min="1" max="31" placeholder="dia" data-venc="${c}" value="${esc(vencs[c] || '')}" title="Dia de vencimento próprio desta empresa (opcional)">
+    </div>`).join('');
+}
+
+function abrirEmpresa(id) {
+  const e = id ? empresas.find(x => x.id === id) : null;
+  editEmpresa = e;
+  document.getElementById('mpTitulo').textContent = e ? 'Editar empresa' : 'Nova empresa';
+  document.getElementById('mpCodigo').value = e?.codigo_dominio ?? '';
+  document.getElementById('mpCnpj').value = fmtCnpj(e?.cnpj);
+  document.getElementById('mpRazao').value = e?.razao || '';
+  document.getElementById('mpUf').value = e?.uf || '';
+  document.getElementById('mpMun').value = e?.municipio || '';
+  document.getElementById('mpIe').value = e?.ie || '';
+  document.getElementById('mpRegime').value = e?.regime || '';
+  document.getElementById('mpResp').value = e?.responsavel || '';
+  document.getElementById('mpAtivo').value = e?.ativo === false ? '0' : '1';
+  document.getElementById('mpExcluir').style.display = e ? '' : 'none';
+  renderChecks(e?.obrigacoes || [], e?.vencimentos || {});
+  abrir('mEmpresa');
+}
+
+function sugerirObrigacoes() {
+  const regime = document.getElementById('mpRegime').value;
+  if (!regime) return toast('Escolha o regime primeiro', true);
+  const sug = SUGESTAO_REGIME[regime] || [];
+  document.querySelectorAll('#mpObrigacoes input[type=checkbox]').forEach(c => c.checked = sug.includes(c.value));
+}
+
+async function salvarEmpresa() {
+  const codigo = document.getElementById('mpCodigo').value.trim();
+  const cnpj = digitos(document.getElementById('mpCnpj').value);
+  const razao = document.getElementById('mpRazao').value.trim();
+  if (!codigo || !razao) return toast('Informe código do Domínio e razão social', true);
+  if (cnpj.length !== 14 && cnpj.length !== 11) return toast('CNPJ/CPF inválido', true);
+  const dup = empresas.find(e => String(e.codigo_dominio) === codigo && e.id !== editEmpresa?.id);
+  if (dup) return toast(`Código ${codigo} já usado por ${dup.razao}`, true);
+  const obrigacoes = [...document.querySelectorAll('#mpObrigacoes input[type=checkbox]:checked')].map(c => c.value);
+  const vencimentos = {};
+  document.querySelectorAll('#mpObrigacoes input[data-venc]').forEach(i => { if (i.value && obrigacoes.includes(i.dataset.venc)) vencimentos[i.dataset.venc] = Number(i.value); });
+  const emp = {
+    id: editEmpresa?.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+    codigo_dominio: Number(codigo), cnpj, razao,
+    uf: document.getElementById('mpUf').value.trim().toUpperCase() || null,
+    municipio: document.getElementById('mpMun').value.trim() || null,
+    ie: document.getElementById('mpIe').value.trim() || null,
+    regime: document.getElementById('mpRegime').value || null,
+    responsavel: document.getElementById('mpResp').value.trim() || null,
+    ativo: document.getElementById('mpAtivo').value === '1',
+    obrigacoes, vencimentos, updated_at: new Date().toISOString(),
+  };
+  try {
+    await upsert('empresas', [emp]);
+    const i = empresas.findIndex(e => e.id === emp.id);
+    if (i >= 0) empresas[i] = { ...empresas[i], ...emp }; else empresas.push(emp);
+    fechar('mEmpresa'); renderEmpresas(); renderEntregas(); toast('Empresa salva');
+  } catch (e) { toast('Erro ao salvar: ' + e.message, true); }
+}
+
+async function excluirEmpresa() {
+  const e = editEmpresa; if (!e) return;
+  if (!confirm(`Excluir ${e.razao}? Todas as obrigações e históricos dela também serão apagados.\n\nPara só parar de gerar obrigações, marque como Inativa.`)) return;
+  try {
+    await remover('empresas', e.id);
+    empresas = empresas.filter(x => x.id !== e.id);
+    entregas = entregas.filter(x => x.empresa_id !== e.id);
+    fechar('mEmpresa'); renderEmpresas(); renderEntregas(); toast('Empresa excluída');
+  } catch (err) { toast('Erro ao excluir: ' + err.message, true); }
+}
+
+// ------------------------------------------------------------------ navegação
+function trocarAba(aba) {
+  document.querySelectorAll('.aba').forEach(s => s.classList.toggle('ativa', s.id === `aba-${aba}`));
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('ativo', b.dataset.aba === aba));
+  try { localStorage.setItem('obr_aba', aba); } catch (e) {}
+}
+const abrir = id => document.getElementById(id).classList.add('open');
+const fechar = id => document.getElementById(id).classList.remove('open');
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('mousedown', e => { if (e.target === m) fechar(m.id); }));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => fechar(m.id)); });
+
+// ------------------------------------------------------------------ início
+document.getElementById('competencia').value = competenciaPadrao();
+document.getElementById('fObrigacao').innerHTML += Object.entries(CATALOGO).map(([c, d]) => `<option value="${c}">${esc(d.nome)}</option>`).join('');
+document.getElementById('fStatus').innerHTML += Object.entries(STATUS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+document.getElementById('regrasVenc').innerHTML = 'Regras usadas ao gerar a competência (confira a legislação da UF e do município; o dia pode ser ajustado por empresa no cadastro e o vencimento pode ser editado em cada obrigação):<br>'
+  + Object.keys(CATALOGO).map(c => `• <b>${esc(CATALOGO[c].nome)}</b>: ${esc(descreverRegra(c))}`).join('<br>')
+  + '<br><span class="sub">Feriados considerados: nacionais, Carnaval, Sexta-feira Santa e Corpus Christi. Feriados estaduais e municipais não entram no cálculo.</span>';
+try { const a = localStorage.getItem('obr_aba'); if (a) trocarAba(a); } catch (e) {}
+carregar();
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+# Copie para config.yaml e ajuste para a sua máquina.
+# Caminhos aceitam variáveis: ${codigo} ${cnpj} ${ano} ${mes} ${competencia} ${obrigacao}
+
+painel:
+  # Mesma função usada pelo controle de notificações. Deixe vazio para trabalhar só com --sem-painel.
+  url: https://qftusjwnlyjokilcjuzb.supabase.co/functions/v1/smart-handler
+
+dominio:
+  # Executável do Domínio na estação (confira o atalho da área de trabalho → Propriedades → Destino)
+  executavel: "C:\\Contabil\\contabil.exe"
+  janela_principal: "Domínio"      # regex do título da janela principal
+  usuario: "GERENTE"
+  senha_env: DOMINIO_SENHA         # a senha fica numa variável de ambiente do Windows, nunca neste arquivo
+  backend: uia                     # "uia" (padrão) ou "win32" — teste os dois com o comando mapear
+  pausa_entre_passos: 0.5
+
+pastas:
+  # Onde ficam os XMLs de NF-e de cada empresa/competência (download SIEG, Arquivei, e-mail etc.)
+  xml: "D:\\Fiscal\\XML\\${codigo}\\${ano}${mes}"
+  # Onde o Domínio deve gravar os arquivos gerados
+  saida: "D:\\Fiscal\\Obrigacoes\\${codigo}\\${obrigacao}\\${ano}${mes}"
+  nome_arquivo: "${obrigacao}_${cnpj}_${ano}${mes}.txt"
+  # Pastas onde o robô procura os recibos de entrega, por obrigação ("padrao" vale para as demais)
+  recibos:
+    EFD_ICMS_IPI:
+      - "C:\\Arquivos de Programas RFB\\Programas SPED\\Fiscal\\recibos"
+    EFD_CONTRIB:
+      - "C:\\Arquivos de Programas RFB\\Programas SPED\\EFD-Contribuicoes\\recibos"
+    padrao:
+      - "D:\\Fiscal\\Obrigacoes\\${codigo}\\${obrigacao}\\${ano}${mes}\\recibo"
+  evidencias: "D:\\Fiscal\\robo\\evidencias"
+
+entrega:
+  # Com false (recomendado no início) o robô nunca transmite: ele só gera, confere e
+  # reconhece o recibo depois que a equipe transmitir. Com true, transmite pelo Domínio
+  # (receitas transmitir_*) apenas obrigações conferidas sem erro.
+  permitir_transmissao_automatica: false
+  regex_recibo: null               # expressão para extrair o nº do recibo (null = padrão ReceitaNet)
+
+# Sobrescritas do catálogo (robo_dominio/catalogo.py), se precisar:
+obrigacoes:
+  GIA:
+    entrega: manual
+
+receitas: receitas.yaml
+
+# Usado só com --sem-painel (testes). No uso normal as empresas vêm do painel.
+empresas:
+  - id: "123"
+    codigo_dominio: 123
+    cnpj: "12.345.678/0001-99"
+    razao: "EMPRESA EXEMPLO LTDA"
+    obrigacoes: [EFD_ICMS_IPI, EFD_CONTRIB, EFD_REINF, DCTFWEB]
+    ativo: true
