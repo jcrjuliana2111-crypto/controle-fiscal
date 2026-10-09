@@ -20,6 +20,13 @@ Plataforma multiempresa para emissão de Nota Fiscal de Serviço Eletrônica, ve
 - Integração: API REST com chaves de acesso e webhooks assinados (HMAC-SHA256) com reenvio automático. Documentação pública em `/docs.html`.
 - Histórico de atividades (quem fez o quê, quando e de qual IP).
 
+**Certificados digitais (controle e venda)**
+- Carteira de certificados com prazo de vencimento: os das empresas emitentes entram sozinhos; os dos clientes podem ser cadastrados à mão ou lidos do .pfx (o arquivo não é guardado).
+- Avisos automáticos por e-mail 30, 15, 7 e 1 dia antes e no dia do vencimento, para dono e administradores, e opcionalmente para o cliente, com link de renovação.
+- Link público de venda por conta (`/certificado.html?c=SEU-LINK`): o cliente escolhe o tipo, preenche os dados e o pedido chega no sistema e por e-mail. Depois do pedido, o cliente pode seguir para o link de compra da certificadora e para o seu WhatsApp.
+- Acompanhamento dos pedidos por situação e botão para copiar os dados formatados para o sistema da certificadora (GestãoFácil/Digibras), até existir integração por API.
+- Eventos `certificado.vencendo` e `pedido_certificado.criado` nos webhooks.
+
 **Cobrança (Asaas)**
 - O dono da conta escolhe o plano e é levado à fatura do Asaas (Pix, boleto ou cartão). O plano é liberado quando o pagamento é confirmado.
 - Troca de plano a qualquer momento (o novo valor vale para a fatura em aberto e as próximas); a redução é bloqueada se a conta usa mais do que o plano menor permite.

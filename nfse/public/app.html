@@ -20,6 +20,7 @@
       <a href="#/emitir" data-rota="emitir" data-perm="emitir" class="menu-destaque">Emitir nota</a>
       <a href="#/notas" data-rota="notas">Notas emitidas</a>
       <a href="#/empresas" data-rota="empresas">Empresas emitentes</a>
+      <a href="#/certificados" data-rota="certificados">Certificados</a>
       <a href="#/municipios" data-rota="municipios">Municípios</a>
       <a href="#/equipe" data-rota="equipe">Equipe</a>
       <a href="#/integracoes" data-rota="integracoes" data-perm="integracoes">Integrações</a>
@@ -194,6 +195,56 @@
       <span class="espaco"></span>
       <button class="btn btn-secundario" value="cancelar">Fechar</button>
       <button class="btn btn-primario" type="button" data-acao="salvar-empresa">Salvar</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog id="dlg-certificado" class="dialogo">
+  <form method="dialog" id="form-certificado" novalidate>
+    <header><h2 data-titulo>Certificado</h2><button class="btn btn-texto" value="cancelar" aria-label="Fechar">✕</button></header>
+    <div class="dialogo-corpo">
+      <input type="hidden" name="id">
+      <section class="certificado" data-ler-pfx>
+        <h3>Preencher a partir do arquivo <small>opcional</small></h3>
+        <div class="grade">
+          <label class="campo c6"><span>Arquivo .pfx ou .p12</span><input type="file" name="pfx" accept=".pfx,.p12"></label>
+          <label class="campo c4"><span>Senha</span><input type="password" name="senhaPfx" autocomplete="off"></label>
+          <div class="c2 alinhar-base"><button class="btn btn-secundario" type="button" data-acao="ler-pfx">Ler</button></div>
+        </div>
+        <small>Só lemos titular e vencimento; o arquivo não fica guardado.</small>
+      </section>
+      <div class="grade">
+        <label class="campo c8"><span>Titular</span><input name="titular" required></label>
+        <label class="campo c4"><span>CNPJ ou CPF</span><input name="documento"></label>
+        <label class="campo c4"><span>Tipo</span><select name="tipo"></select></label>
+        <label class="campo c4"><span>Vencimento</span><input name="vencimento" type="date" required></label>
+        <label class="campo c4"><span>Certificadora <small>opcional</small></span><input name="emissor"></label>
+        <label class="campo c4"><span>Contato do cliente</span><input name="clienteNome" placeholder="Nome"></label>
+        <label class="campo c4"><span>E-mail do cliente</span><input name="clienteEmail" type="email"></label>
+        <label class="campo c4"><span>Telefone do cliente</span><input name="clienteTelefone" type="tel"></label>
+        <label class="check c12"><input type="checkbox" name="avisarCliente"> Avisar o cliente por e-mail antes do vencimento, com o link de renovação</label>
+        <label class="campo c12"><span>Observação</span><input name="observacao"></label>
+      </div>
+      <p class="msg-form" role="alert"></p>
+    </div>
+    <footer>
+      <button class="btn btn-perigo" type="button" data-acao="remover-certificado">Remover</button>
+      <span class="espaco"></span>
+      <button class="btn btn-secundario" value="cancelar">Fechar</button>
+      <button class="btn btn-primario" type="button" data-acao="salvar-certificado">Salvar</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog id="dlg-pedido" class="dialogo">
+  <form method="dialog">
+    <header><h2 data-titulo>Pedido</h2><button class="btn btn-texto" value="cancelar" aria-label="Fechar">✕</button></header>
+    <div class="dialogo-corpo" data-corpo></div>
+    <footer>
+      <button class="btn btn-secundario" type="button" data-acao="copiar-pedido">Copiar dados</button>
+      <a class="btn btn-secundario" data-link-compra target="_blank" rel="noopener">Abrir no sistema da certificadora</a>
+      <span class="espaco"></span>
+      <button class="btn btn-secundario" value="cancelar">Fechar</button>
     </footer>
   </form>
 </dialog>

@@ -15,6 +15,8 @@ import { espelhoHtml } from '../espelho.js';
 import { h, exigir, exigirConta } from './middleware.js';
 import { config } from '../config.js';
 import * as cobranca from '../saas/cobranca.js';
+import * as certs from '../saas/certificados.js';
+import { limitar as limitarIp } from '../saas/limitador.js';
 
 const r = express.Router();
 
@@ -35,8 +37,32 @@ r.post('/cobranca/asaas', h(async (req, res) => {
   res.json({ ok: true, ...r2 });
 }));
 
+// Página pública de pedido de certificado (link divulgado pela conta).
+r.get('/publico/certificado/:slug', h(async (req, res) => res.json(await certs.paginaPublica(req.params.slug))));
+r.post('/publico/certificado/:slug', h(async (req, res) => {
+  limitarIp(`pedido-cert:${req.ip}`, { max: 10, janelaMs: 3600_000 });
+  res.status(201).json(await certs.criarPedido(req.params.slug, req.body || {}, req.ip));
+}));
+
 // Daqui em diante, tudo exige estar autenticado numa conta.
 r.use(exigirConta);
+
+// ------------------------------------------------------------ certificados
+r.get('/certificados', exigir('ver'), h(async (req, res) => res.json({
+  itens: await certs.listarCertificados(req.quem.contaId, req.query), resumo: await certs.resumoCertificados(req.quem.contaId), tipos: certs.TIPOS,
+})));
+r.post('/certificados', exigir('prestadores'), h(async (req, res) => res.status(201).json(await certs.salvarCertificado(req.quem.contaId, req.body || {}))));
+r.put('/certificados/:id', exigir('prestadores'), h(async (req, res) => res.json(await certs.salvarCertificado(req.quem.contaId, { ...req.body, id: req.params.id }))));
+r.delete('/certificados/:id', exigir('prestadores'), h(async (req, res) => { await certs.removerCertificado(req.quem.contaId, req.params.id); res.status(204).end(); }));
+r.post('/certificados/ler-pfx', exigir('prestadores'), express.json({ limit: '2mb' }), h(async (req, res) =>
+  res.json(certs.lerDadosPfx(Buffer.from(req.body?.pfxBase64 || '', 'base64'), req.body?.senha || ''))));
+r.get('/venda-certificados', exigir('ver'), h(async (req, res) => res.json(await certs.configVenda(req.quem.contaId))));
+r.put('/venda-certificados', exigir('prestadores'), h(async (req, res) => res.json(await certs.salvarConfigVenda(req.quem.contaId, req.body || {}))));
+r.get('/pedidos-certificado', exigir('ver'), h(async (req, res) => res.json(await certs.listarPedidos(req.quem.contaId, req.query))));
+r.put('/pedidos-certificado/:id', exigir('prestadores'), h(async (req, res) => {
+  await certs.alterarPedido(req.quem.contaId, req.params.id, req.body || {}, req.quem);
+  res.json({ ok: true });
+}));
 
 // ------------------------------------------------------------ assinatura
 r.get('/assinatura', exigir('ver'), h(async (req, res) => {

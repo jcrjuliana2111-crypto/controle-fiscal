@@ -5,6 +5,7 @@ import { lerCertificado, certificadoVencido } from './certificado.js';
 import { documentoValido } from './validacao.js';
 import { cifrar, decifrar, novaChaveDados, abrirChaveDados } from '../util/segredo.js';
 import { normDoc } from '../util/xml.js';
+import { sincronizarDoPrestador } from '../saas/certificados.js';
 
 // Campos guardados em "dados" (jsonb).
 const EXTRAS = ['nomeFantasia', 'email', 'fone', 'opSimpNac', 'regApTribSN', 'regEspTrib', 'incentivoFiscal',
@@ -86,6 +87,7 @@ export async function desativarPrestador(contaId, id) {
   // Mantém o registro (as notas apontam para ele) e descarta o certificado.
   await q(`UPDATE prestadores SET ativo = false, cert_pfx = NULL, cert_senha = NULL, cert_chave = NULL, atualizado_em = now()
            WHERE id = $1 AND conta_id = $2`, [id, contaId]);
+  await q('DELETE FROM certificados WHERE prestador_id = $1 AND conta_id = $2', [id, contaId]);
   cache.delete(id);
 }
 
@@ -102,6 +104,7 @@ export async function instalarCertificado(contaId, id, pfx, senha) {
   const r = await um(`UPDATE prestadores SET certificado = $3, cert_pfx = $4, cert_senha = $5, cert_chave = $6, atualizado_em = now()
       WHERE id = $1 AND conta_id = $2 RETURNING *`, [id, contaId, meta, cifrar(pfx, dek), cifrar(senha, dek), dekCifrada]);
   cache.delete(id);
+  await sincronizarDoPrestador(contaId, id, meta, p.razaoSocial);
   return deLinha(r);
 }
 

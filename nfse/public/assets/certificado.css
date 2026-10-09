@@ -1,0 +1,28 @@
+.pedido { max-width: 680px; margin: 0 auto; padding: clamp(28px, 6vh, 56px) 16px 40px; }
+.pedido header { margin-bottom: 22px; }
+.vendedor { font-weight: 700; color: var(--carimbo); margin-bottom: 6px; }
+.pedido h1 { font-size: clamp(28px, 5vw, 38px); font-weight: 800; letter-spacing: -.03em; }
+.intro { color: var(--tinta-2); margin-top: 8px; max-width: 60ch; }
+.cartao { background: var(--folha); border: 1px solid var(--linha-forte); border-radius: var(--raio-grande); padding: 24px; box-shadow: var(--sombra); display: flex; flex-direction: column; gap: 20px; }
+fieldset { border: 0; display: flex; flex-direction: column; gap: 12px; }
+legend { font-weight: 700; font-size: 17px; margin-bottom: 12px; }
+.grade2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+.grade2 .largo { grid-column: span 2; }
+.tipos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.tipo { position: relative; border: 1px solid var(--linha-forte); border-radius: var(--raio); padding: 12px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.tipo input { position: absolute; opacity: 0; }
+.tipo strong { font-size: 15.5px; }
+.tipo span { font-size: 13px; color: var(--tinta-2); }
+.tipo:has(input:checked) { border-color: var(--carimbo); background: var(--carimbo-claro); box-shadow: 0 0 0 1px var(--carimbo); }
+.tipo:has(input:focus-visible) { outline: 2px solid var(--carimbo); outline-offset: 2px; }
+.opcoes { display: flex; gap: 22px; flex-wrap: wrap; }
+.aceite { align-items: flex-start; font-size: 14px; color: var(--tinta-2); }
+.aceite input { margin-top: 3px; flex: none; }
+.isca { position: absolute; left: -9999px; }
+.msg:empty { display: none; }
+.msg { font-size: 14px; padding: 10px 12px; border-radius: var(--raio); background: var(--erro-claro); color: var(--erro); }
+.cartao .btn[type=submit] { padding: 14px; font-size: 16px; }
+.acoes-sucesso { display: flex; gap: 10px; flex-wrap: wrap; }
+.pedido footer { text-align: center; margin-top: 24px; font-size: 13px; color: var(--tinta-3); }
+.pedido footer a { color: inherit; }
+@media (max-width: 560px) { .grade2, .tipos { grid-template-columns: 1fr; } .grade2 .largo { grid-column: auto; } }

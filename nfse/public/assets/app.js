@@ -128,7 +128,7 @@ async function carregarPrestadores() {
 
 // ------------------------------------------------------------------ roteamento
 const ROTAS = {
-  painel: telaPainel, emitir: telaEmitir, notas: telaNotas, empresas: telaEmpresas, municipios: telaMunicipios,
+  painel: telaPainel, emitir: telaEmitir, notas: telaNotas, empresas: telaEmpresas, municipios: telaMunicipios, certificados: telaCertificados,
   equipe: telaEquipe, integracoes: telaIntegracoes, conta: telaConta, admin: telaAdmin,
 };
 
@@ -190,7 +190,7 @@ async function telaPainel(alvo) {
         ${medidor('Notas em produção no mês', conta.uso.notasMes, conta.limites.notasMes)}
         ${medidor('Empresas emitentes', conta.uso.prestadores, conta.limites.prestadores)}
         ${medidor('Usuários', conta.uso.usuarios, conta.limites.usuarios)}
-        ${painel.certificadosVencendo.length ? `<div class="mensagem alerta"><b>Certificados vencendo</b>${painel.certificadosVencendo.map((c) => `${h(c.razao_social)}: ${data(c.valido_ate)}`).join('<br>')}</div>` : ''}
+        ${painel.certificadosVencendo.length ? `<div class="mensagem alerta"><b>Certificados vencendo</b>${painel.certificadosVencendo.map((c) => `${h(c.razao_social)}: ${data(c.valido_ate)}`).join('<br>')}<br><a href="#/certificados">Ver todos os certificados</a></div>` : ''}
       </section>
     </div>
     <div class="secao-titulo"><h2>Últimas notas</h2><a href="#/notas">Ver todas</a></div>
@@ -500,6 +500,132 @@ function atualizarCampoSimples() {
   $('[data-se-simples]', f).classList.toggle('oculto', f.opSimpNac.value !== '3');
 }
 $('#form-empresa').opSimpNac.addEventListener('change', atualizarCampoSimples);
+
+// ------------------------------------------------------------------ certificados
+const STATUS_PEDIDO = {
+  novo: ['selo-info', 'Novo'], em_atendimento: ['selo-alerta', 'Em atendimento'], aguardando_pagamento: ['selo-alerta', 'Aguardando pagamento'],
+  aguardando_validacao: ['selo-alerta', 'Aguardando validação'], emitido: ['selo-ok', 'Emitido'], cancelado: ['selo-neutro', 'Cancelado'],
+};
+const seloDias = (d) => d < 0 ? `<span class="selo selo-erro">Vencido há ${-d} dia${d === -1 ? '' : 's'}</span>`
+  : d === 0 ? '<span class="selo selo-erro">Vence hoje</span>'
+  : d <= 30 ? `<span class="selo selo-alerta">${d} dia${d === 1 ? '' : 's'}</span>`
+  : `<span class="selo ${d <= 90 ? 'selo-info' : 'selo-ok'}">${d} dias</span>`;
+
+function abasCertificados(ativa) {
+  return `<div class="cabecalho-pagina"><div><h1>Certificados</h1><p>Acompanhe vencimentos, receba pedidos de compra e renovação e divulgue seu link de venda.</p></div>
+    ${ativa === 'vencimentos' && pode('prestadores') ? '<button class="btn btn-primario" data-acao="novo-certificado">Adicionar certificado</button>' : ''}</div>
+    <nav class="abas">${[['vencimentos', 'Vencimentos', ''], ['pedidos', 'Pedidos', '/pedidos'], ['divulgar', 'Link de venda', '/divulgar']]
+      .map(([k, t, c]) => `<a href="#/certificados${c}"${k === ativa ? ' aria-current="page"' : ''}>${t}</a>`).join('')}</nav>`;
+}
+
+async function telaCertificados(alvo, aba) {
+  if (aba === 'pedidos') return telaPedidos(alvo);
+  if (aba === 'divulgar') return telaDivulgar(alvo);
+  const filtro = estado.filtroCert || '';
+  const { itens, resumo, tipos } = await api(`/certificados${filtro ? '?filtro=' + filtro : ''}`);
+  estado.certificados = itens; estado.tiposCert = tipos;
+  alvo.innerHTML = `${abasCertificados('vencimentos')}
+    <dl class="indicadores">
+      <div class="indicador"><dt>Vencidos</dt><dd>${resumo.vencidos}</dd></div>
+      <div class="indicador"><dt>Vencem em 30 dias</dt><dd>${resumo.ate30}</dd></div>
+      <div class="indicador"><dt>Vencem em 31 a 90 dias</dt><dd>${resumo.ate90}</dd></div>
+      <div class="indicador"><dt>Na carteira</dt><dd>${resumo.total}</dd></div>
+    </dl>
+    <div class="barra-filtros"><select id="filtro-cert" aria-label="Filtrar">${[['', 'Todos'], ['vencidos', 'Vencidos'], ['30', 'Vencem em até 30 dias'], ['90', 'Vencem em até 90 dias']]
+      .map(([v, t]) => `<option value="${v}"${v === filtro ? ' selected' : ''}>${t}</option>`).join('')}</select>
+      <span class="sub" style="align-self:center">Avisamos você por e-mail 30, 15, 7 e 1 dia antes e no dia do vencimento.</span></div>
+    ${itens.length ? `<div class="tabela-wrap"><table class="tabela"><thead><tr><th>Titular</th><th>Tipo</th><th>Vencimento</th><th>Prazo</th><th>Cliente</th><th>Aviso ao cliente</th></tr></thead><tbody>
+      ${itens.map((c) => `<tr class="clicavel" data-acao="editar-certificado" data-id="${c.id}" tabindex="0">
+        <td><strong>${h(c.titular)}</strong><span class="sub">${h(fmtDoc(c.documento || ''))}${c.empresa ? ' · empresa emitente' : ''}</span></td>
+        <td>${h(c.tipo)}</td><td>${data(c.vencimento)}</td><td>${seloDias(c.dias)}</td>
+        <td>${h(c.clienteNome || '')}<span class="sub">${h(c.clienteTelefone || c.clienteEmail || '')}</span></td>
+        <td>${c.avisarCliente ? 'Sim' : '—'}</td></tr>`).join('')}
+    </tbody></table></div>`
+    : `<div class="tabela-wrap"><div class="vazio"><strong>Nenhum certificado ${filtro ? 'neste filtro' : 'na carteira'}</strong>Os certificados das empresas emitentes entram aqui sozinhos. Adicione também os dos seus clientes para lembrar da renovação e vender de novo.${pode('prestadores') ? '<br><button class="btn btn-primario" data-acao="novo-certificado">Adicionar certificado</button>' : ''}</div></div>`}`;
+  $('#filtro-cert').addEventListener('change', (e) => { estado.filtroCert = e.target.value; telaCertificados(alvo); });
+}
+
+function abrirCertificado(c) {
+  const f = $('#form-certificado');
+  f.reset();
+  f.tipo.innerHTML = (estado.tiposCert || []).map((t) => `<option>${h(t)}</option>`).join('');
+  preencherForm(f, c || { tipo: 'e-CNPJ A1' });
+  const daEmpresa = !!c?.prestadorId;
+  $('[data-titulo]', f).textContent = c ? c.titular : 'Adicionar certificado';
+  $('[data-acao=remover-certificado]', f).classList.toggle('oculto', !c || daEmpresa);
+  $('[data-ler-pfx]', f).classList.toggle('oculto', daEmpresa);
+  for (const n of ['titular', 'documento', 'vencimento', 'emissor']) f[n].readOnly = daEmpresa;
+  $('.msg-form', f).textContent = daEmpresa ? '' : '';
+  $('#dlg-certificado').showModal();
+}
+
+async function telaPedidos(alvo) {
+  const [pedidos, venda] = await Promise.all([api(`/pedidos-certificado${estado.filtroPedido ? '?status=' + estado.filtroPedido : ''}`), api('/venda-certificados')]);
+  estado.pedidos = pedidos; estado.venda = venda;
+  alvo.innerHTML = `${abasCertificados('pedidos')}
+    <div class="barra-filtros"><select id="filtro-pedido" aria-label="Filtrar por situação"><option value="">Todas as situações</option>${Object.entries(STATUS_PEDIDO).map(([k, [, t]]) => `<option value="${k}"${estado.filtroPedido === k ? ' selected' : ''}>${t}</option>`).join('')}</select></div>
+    ${pedidos.length ? `<div class="tabela-wrap"><table class="tabela"><thead><tr><th>Nº</th><th>Cliente</th><th>Certificado</th><th>Contato</th><th>Recebido</th><th>Situação</th></tr></thead><tbody>
+      ${pedidos.map((p) => `<tr><td><button class="btn btn-texto btn-pequeno" data-acao="ver-pedido" data-id="${p.id}">${p.numero}</button></td>
+        <td><strong>${h(p.dados.razaoSocial || p.dados.nome)}</strong><span class="sub">${h(fmtDoc(p.dados.cnpj || p.dados.cpf || ''))}</span></td>
+        <td>${h(p.tipo)}${p.renovacao ? ' <span class="selo selo-neutro">Renovação</span>' : ''}</td>
+        <td>${h(p.dados.telefone)}<span class="sub">${h(p.dados.email)}</span></td>
+        <td>${dataHora(p.criado_em)}</td>
+        <td>${pode('prestadores') ? `<select data-acao-change="status-pedido" data-id="${p.id}" aria-label="Situação do pedido ${p.numero}">${Object.entries(STATUS_PEDIDO).map(([k, [, t]]) => `<option value="${k}"${k === p.status ? ' selected' : ''}>${t}</option>`).join('')}</select>` : `<span class="selo ${STATUS_PEDIDO[p.status][0]}">${STATUS_PEDIDO[p.status][1]}</span>`}</td></tr>`).join('')}
+    </tbody></table></div>`
+    : `<div class="tabela-wrap"><div class="vazio"><strong>Nenhum pedido ainda</strong>Divulgue seu link de venda para receber pedidos de certificado aqui.<br><a class="btn btn-primario" href="#/certificados/divulgar">Ver meu link</a></div></div>`}`;
+  $('#filtro-pedido').addEventListener('change', (e) => { estado.filtroPedido = e.target.value; telaPedidos(alvo); });
+}
+
+function textoPedido(p) {
+  const d = p.dados;
+  return [`Pedido nº ${p.numero} — ${p.tipo}${p.renovacao ? ' (renovação)' : ''}`,
+    d.razaoSocial ? `Razão social: ${d.razaoSocial}` : null, d.cnpj ? `CNPJ: ${fmtDoc(d.cnpj)}` : null,
+    `Responsável: ${d.nome}`, `CPF: ${fmtDoc(d.cpf)}`, d.nascimento ? `Nascimento: ${data(d.nascimento)}` : null,
+    `E-mail: ${d.email}`, `Telefone: ${d.telefone}`, d.cep ? `CEP: ${d.cep}` : null, d.cidade ? `Cidade: ${d.cidade}/${d.uf || ''}` : null,
+    `Validação: ${d.validacao === 'presencial' ? 'presencial' : 'videoconferência'}`, d.horario ? `Horário: ${d.horario}` : null,
+    d.observacao ? `Observação: ${d.observacao}` : null].filter(Boolean).join('\n');
+}
+
+async function telaDivulgar(alvo) {
+  const v = await api('/venda-certificados');
+  const editar = pode('prestadores');
+  alvo.innerHTML = `${abasCertificados('divulgar')}
+    <div class="duas-colunas">
+      <form class="bloco" id="form-venda"><h2>Seu link de venda</h2>
+        <p class="sub" style="margin-bottom:12px">Envie para clientes, coloque no Instagram, no site ou na assinatura do e-mail. Os pedidos chegam na aba Pedidos e por e-mail.</p>
+        <div class="grade">
+          <label class="campo c12"><span>Endereço</span><input value="${h(v.link)}" readonly id="link-venda"></label>
+          <div class="c12" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-secundario btn-pequeno" type="button" data-acao="copiar-link-venda">Copiar link</button>
+            <a class="btn btn-secundario btn-pequeno" href="${h(v.link)}" target="_blank" rel="noopener">Abrir página</a>
+            <a class="btn btn-secundario btn-pequeno" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('Peça ou renove seu certificado digital por aqui: ' + v.link)}">Enviar pelo WhatsApp</a></div>
+          ${editar ? `<label class="campo c6"><span>Final do endereço</span><input name="slug" value="${h(v.slug)}" pattern="[a-z0-9-]{3,40}"></label>
+          <label class="check c6" style="padding-top:28px"><input type="checkbox" name="ativo"${v.ativo ? ' checked' : ''}> Página ativa</label>
+          <label class="campo c12"><span>Link de compra na certificadora <small>opcional; mostrado ao cliente depois do pedido</small></span><input name="linkCompra" value="${h(v.linkCompra)}" placeholder="https://"></label>
+          <label class="campo c6"><span>Seu WhatsApp <small>com DDD</small></span><input name="whatsapp" value="${h(v.whatsapp)}" inputmode="tel"></label>
+          <label class="campo c6"><span>E-mail para receber pedidos</span><input name="emailAvisos" type="email" value="${h(v.emailAvisos)}" placeholder="padrão: e-mail do dono"></label>
+          <label class="campo c12"><span>Mensagem no topo da página</span><textarea name="mensagem" maxlength="500" placeholder="Ex.: Atendimento por videoconferência em até 24 horas.">${h(v.mensagem)}</textarea></label>
+          <div class="c12"><button class="btn btn-primario">Salvar</button></div>` : ''}
+        </div>
+      </form>
+      ${editar ? `<form class="bloco" id="form-precos"><h2>Preços exibidos <small>opcional</small></h2>
+        <p class="sub" style="margin-bottom:12px">Deixe em branco para não mostrar preço.</p>
+        <div class="grade">${(await api('/certificados')).tipos.filter((t) => t !== 'Outro').map((t) => `<label class="campo c6"><span>${h(t)}</span><input type="number" step="0.01" min="0" name="${h(t)}" value="${h(v.precos?.[t] ?? '')}"></label>`).join('')}
+          <div class="c12"><button class="btn btn-secundario">Salvar preços</button></div></div></form>` : ''}
+    </div>`;
+  const salvar = async (extra) => {
+    const f = $('#form-venda');
+    const corpo = { ...v, slug: f.slug.value.trim(), ativo: f.ativo.checked, linkCompra: f.linkCompra.value.trim(), whatsapp: f.whatsapp.value,
+      emailAvisos: f.emailAvisos.value.trim(), mensagem: f.mensagem.value, ...extra };
+    try { await api('/venda-certificados', { metodo: 'PUT', corpo }); toast('Salvo.'); telaDivulgar(alvo); } catch (e) { toast(e.message, 'erro'); }
+  };
+  $('#form-venda')?.addEventListener('submit', (e) => { e.preventDefault(); salvar(); });
+  $('#form-precos')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const precos = {};
+    for (const el of e.target.elements) if (el.name && el.value) precos[el.name] = Number(el.value);
+    salvar({ precos });
+  });
+}
 
 // ------------------------------------------------------------------ municípios
 async function telaMunicipios(alvo) {
@@ -849,12 +975,66 @@ const ACOES = {
     if (!confirmar('Cancelar a assinatura? Você continua com o plano até o fim do período já pago; depois a emissão em produção é bloqueada.')) return;
     try { await api('/assinatura', { metodo: 'DELETE' }); toast('Assinatura cancelada.'); await carregarSessao(); navegar(); } catch (e) { toast(e.message, 'erro'); }
   },
+  'novo-certificado': () => abrirCertificado(null),
+  'editar-certificado': (el) => abrirCertificado(estado.certificados.find((c) => c.id === el.dataset.id)),
+  'ler-pfx': async (el) => {
+    const f = $('#form-certificado');
+    const arq = f.pfx.files[0];
+    if (!arq) { $('.msg-form', f).textContent = 'Escolha o arquivo do certificado.'; return; }
+    const bytes = new Uint8Array(await arq.arrayBuffer());
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode(...bytes.subarray(i, i + 8192));
+    el.disabled = true;
+    try {
+      const d = await api('/certificados/ler-pfx', { metodo: 'POST', corpo: { pfxBase64: btoa(bin), senha: f.senhaPfx.value } });
+      for (const k of ['titular', 'documento', 'vencimento', 'emissor', 'tipo']) if (d[k]) f[k].value = d[k];
+      $('.msg-form', f).textContent = '';
+      toast('Dados lidos do certificado.');
+    } catch (e) { $('.msg-form', f).textContent = e.message; } finally { el.disabled = false; }
+  },
+  'salvar-certificado': async () => {
+    const f = $('#form-certificado');
+    const d = lerForm(f);
+    d.avisarCliente = f.avisarCliente.checked;
+    delete d.senhaPfx;
+    try {
+      await api(d.id ? `/certificados/${d.id}` : '/certificados', { metodo: d.id ? 'PUT' : 'POST', corpo: d });
+      $('#dlg-certificado').close(); toast('Certificado salvo.'); navegar();
+    } catch (e) { $('.msg-form', f).textContent = e.message; }
+  },
+  'remover-certificado': async () => {
+    const f = $('#form-certificado');
+    if (!confirmar('Remover este certificado da carteira?')) return;
+    try { await api(`/certificados/${f.id.value}`, { metodo: 'DELETE' }); $('#dlg-certificado').close(); navegar(); } catch (e) { $('.msg-form', f).textContent = e.message; }
+  },
+  'ver-pedido': (el) => {
+    const p = estado.pedidos.find((x) => x.id === el.dataset.id);
+    const d = $('#dlg-pedido');
+    $('[data-titulo]', d).textContent = `Pedido nº ${p.numero}`;
+    $('[data-corpo]', d).innerHTML = `<pre class="segredo" style="color:var(--tinta)">${h(textoPedido(p))}</pre>
+      <ul class="linha-tempo">${p.historico.map((x) => `<li><time>${dataHora(x.em)}</time>${h(STATUS_PEDIDO[x.status]?.[1] || x.status)}${x.por ? ` <span class="sub">por ${h(x.por)}</span>` : ''}</li>`).join('')}</ul>`;
+    d.dataset.texto = textoPedido(p);
+    const link = $('[data-link-compra]', d);
+    link.classList.toggle('oculto', !estado.venda?.linkCompra);
+    if (estado.venda?.linkCompra) link.href = estado.venda.linkCompra;
+    d.showModal();
+  },
+  'copiar-pedido': async () => {
+    try { await navigator.clipboard.writeText($('#dlg-pedido').dataset.texto); toast('Dados copiados. Cole no sistema da certificadora.'); } catch { toast('Selecione e copie manualmente.', 'erro'); }
+  },
+  'copiar-link-venda': async () => {
+    try { await navigator.clipboard.writeText($('#link-venda').value); toast('Link copiado.'); } catch { $('#link-venda').select(); }
+  },
   'copiar-segredo': async () => {
     try { await navigator.clipboard.writeText($('#dlg-segredo [data-segredo]').textContent); toast('Copiado.'); } catch { toast('Selecione e copie manualmente.', 'erro'); }
   },
 };
 
 const ACOES_CHANGE = {
+  'status-pedido': async (el) => {
+    try { await api(`/pedidos-certificado/${el.dataset.id}`, { metodo: 'PUT', corpo: { status: el.value } }); toast('Situação atualizada.'); }
+    catch (e) { toast(e.message, 'erro'); }
+  },
   papel: async (el) => {
     try { await api(`/equipe/${el.dataset.id}`, { metodo: 'PUT', corpo: { papel: el.value } }); toast('Perfil alterado.'); if (el.value === 'dono') location.reload(); }
     catch (e) { toast(e.message, 'erro'); navegar(); }

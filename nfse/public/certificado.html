@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Certificado digital</title>
+<link rel="icon" href="/assets/marca.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/base.css">
+<link rel="stylesheet" href="/assets/certificado.css">
+</head>
+<body>
+<main class="pedido">
+  <header>
+    <p class="vendedor" data-vendedor></p>
+    <h1 data-titulo>Peça seu certificado digital</h1>
+    <p class="intro" data-mensagem>Preencha os dados abaixo. Entraremos em contato para agendar a validação e enviar o pagamento.</p>
+  </header>
+
+  <form id="form-pedido" class="cartao" novalidate>
+    <fieldset>
+      <legend>Qual certificado você precisa?</legend>
+      <div class="tipos" data-tipos></div>
+    </fieldset>
+
+    <fieldset data-pj>
+      <legend>Empresa</legend>
+      <div class="grade2">
+        <label class="campo"><span>CNPJ</span><input name="cnpj" inputmode="numeric" autocomplete="off"></label>
+        <label class="campo"><span>Razão social</span><input name="razaoSocial" autocomplete="organization"></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend data-legenda-titular>Responsável legal</legend>
+      <div class="grade2">
+        <label class="campo"><span>Nome completo</span><input name="nome" autocomplete="name" required></label>
+        <label class="campo"><span>CPF</span><input name="cpf" inputmode="numeric" autocomplete="off" required></label>
+        <label class="campo"><span>Data de nascimento</span><input name="nascimento" type="date"></label>
+        <label class="campo"><span>Celular (WhatsApp)</span><input name="telefone" type="tel" inputmode="tel" autocomplete="tel" required></label>
+        <label class="campo largo"><span>E-mail</span><input name="email" type="email" autocomplete="email" required></label>
+        <label class="campo"><span>CEP</span><input name="cep" inputmode="numeric" autocomplete="postal-code" data-cep></label>
+        <label class="campo"><span>Cidade e UF</span><input name="cidadeUf" autocomplete="address-level2" data-cidade></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Como prefere fazer a validação?</legend>
+      <div class="opcoes">
+        <label class="check"><input type="radio" name="validacao" value="video" checked> Por videoconferência</label>
+        <label class="check"><input type="radio" name="validacao" value="presencial"> Presencial</label>
+      </div>
+      <label class="campo" style="margin-top:14px"><span>Melhor dia e horário para contato <small>opcional</small></span><input name="horario" placeholder="Ex.: dias úteis, depois das 14h"></label>
+      <label class="campo" style="margin-top:14px"><span>Observações <small>opcional</small></span><textarea name="observacao" maxlength="1000"></textarea></label>
+    </fieldset>
+
+    <label class="isca" aria-hidden="true">Não preencha: <input name="site" tabindex="-1" autocomplete="off"></label>
+    <label class="check aceite"><input type="checkbox" name="aceite"> Autorizo o uso destes dados para a emissão do certificado digital e o contato sobre este pedido.</label>
+    <p class="msg" role="alert"></p>
+    <button class="btn btn-primario" type="submit">Enviar pedido</button>
+  </form>
+
+  <section class="cartao oculto" data-sucesso>
+    <h2>Pedido recebido</h2>
+    <p data-sucesso-texto></p>
+    <div class="acoes-sucesso" data-sucesso-acoes></div>
+  </section>
+
+  <section class="cartao oculto" data-indisponivel>
+    <h2>Página indisponível</h2>
+    <p>Este link de pedido não está ativo. Verifique o endereço com quem enviou.</p>
+  </section>
+  <footer>Pedido enviado com segurança por <a href="/">%APP_NAME%</a></footer>
+</main>
+<script src="/assets/certificado.js" type="module"></script>
+</body>
+</html>

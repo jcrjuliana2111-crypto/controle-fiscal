@@ -4,7 +4,7 @@ import { ErroApp, invalido, naoEncontrado } from './erros.js';
 import { situacaoConta } from './contas.js';
 import { exigirEnderecoPublico } from '../util/rede.js';
 
-export const EVENTOS = ['nota.autorizada', 'nota.rejeitada', 'nota.cancelada', 'nota.processando'];
+export const EVENTOS = ['nota.autorizada', 'nota.rejeitada', 'nota.cancelada', 'nota.processando', 'certificado.vencendo', 'pedido_certificado.criado'];
 const ESPERAS_MIN = [1, 5, 30, 120, 360, 720]; // backoff entre tentativas
 
 export async function listarWebhooks(contaId) {

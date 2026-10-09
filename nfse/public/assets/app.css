@@ -172,3 +172,8 @@ textarea.codigo { font-family: ui-monospace, Menlo, Consolas, monospace; font-si
   .dados { grid-template-columns: 1fr; }
   .dados .largo { grid-column: auto; }
 }
+
+.abas { display: flex; gap: 4px; border-bottom: 1px solid var(--linha-forte); margin: -6px 0 18px; overflow-x: auto; }
+.abas a { padding: 10px 14px; color: var(--tinta-2); text-decoration: none; font-weight: 600; font-size: 14.5px; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.abas a:hover { color: var(--tinta); }
+.abas a[aria-current=page] { color: var(--carimbo); border-bottom-color: var(--carimbo); }
