@@ -81,7 +81,8 @@ export const exigir = (permissao) => (req, res, next) => {
 };
 
 export function exigirSuperadmin(req, res, next) {
-  if (!req.quem?.usuario?.superadmin) return next(new ErroApp(403, 'Acesso restrito à administração da plataforma.'));
+  if (!req.quem) return next(new ErroApp(401, 'Faça login para continuar.'));
+  if (!req.quem.usuario?.superadmin) return next(new ErroApp(403, 'Acesso restrito à administração da plataforma.'));
   next();
 }
 

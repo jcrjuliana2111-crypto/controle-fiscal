@@ -21,6 +21,7 @@
       <a href="#/notas" data-rota="notas">Notas emitidas</a>
       <a href="#/empresas" data-rota="empresas">Empresas emitentes</a>
       <a href="#/certificados" data-rota="certificados">Certificados</a>
+      <a href="#/fiscal" data-rota="fiscal">Fiscal (Receita)</a>
       <a href="#/municipios" data-rota="municipios">Municípios</a>
       <a href="#/equipe" data-rota="equipe">Equipe</a>
       <a href="#/integracoes" data-rota="integracoes" data-perm="integracoes">Integrações</a>
@@ -245,6 +246,32 @@
       <a class="btn btn-secundario" data-link-compra target="_blank" rel="noopener">Abrir no sistema da certificadora</a>
       <span class="espaco"></span>
       <button class="btn btn-secundario" value="cancelar">Fechar</button>
+    </footer>
+  </form>
+</dialog>
+
+<dialog id="dlg-contribuinte" class="dialogo">
+  <form method="dialog" id="form-contribuinte" novalidate>
+    <header><h2 data-titulo>Cliente</h2><button class="btn btn-texto" value="cancelar" aria-label="Fechar">✕</button></header>
+    <div class="dialogo-corpo">
+      <input type="hidden" name="id">
+      <div class="grade">
+        <label class="campo c4"><span>CNPJ ou CPF</span><input name="documento" required></label>
+        <label class="campo c8"><span>Nome</span><input name="nome" required></label>
+        <label class="campo c4"><span>Regime</span><select name="regime"><option value="MEI">MEI</option><option value="SN">Simples Nacional</option><option value="LP">Lucro Presumido</option><option value="LR">Lucro Real</option><option value="PF">Pessoa física</option><option value="Outro">Outro</option></select></label>
+        <label class="campo c4"><span>E-mail</span><input name="email" type="email"></label>
+        <label class="campo c4"><span>Telefone</span><input name="telefone" type="tel"></label>
+        <label class="check c12"><input type="checkbox" name="dasAutomatico"> Gerar e enviar o DAS do MEI todo mês, automaticamente</label>
+        <label class="campo c12"><span>Observação</span><input name="observacao"></label>
+      </div>
+      <p class="hint">O cliente precisa ter dado procuração eletrônica no e-CAC ao CNPJ do seu escritório para os serviços funcionarem.</p>
+      <p class="msg-form" role="alert"></p>
+    </div>
+    <footer>
+      <button class="btn btn-perigo" type="button" data-acao="remover-contribuinte">Remover</button>
+      <span class="espaco"></span>
+      <button class="btn btn-secundario" value="cancelar">Fechar</button>
+      <button class="btn btn-primario" type="button" data-acao="salvar-contribuinte">Salvar</button>
     </footer>
   </form>
 </dialog>

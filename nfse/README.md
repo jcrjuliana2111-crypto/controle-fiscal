@@ -27,6 +27,14 @@ Plataforma multiempresa para emissão de Nota Fiscal de Serviço Eletrônica, ve
 - Acompanhamento dos pedidos por situação e botão para copiar os dados formatados para o sistema da certificadora (GestãoFácil/Digibras), até existir integração por API.
 - Eventos `certificado.vencendo` e `pedido_certificado.criado` nos webhooks.
 
+**Fiscal: Integra Contador (SERPRO)**
+- Catálogo com 93 serviços da Receita em 7 grupos: MEI (DAS em PDF ou código de barras, CCMEI, DASN-SIMEI, dívida ativa), Simples Nacional (PGDAS-D, DAS, extratos, regime de apuração, DEFIS), parcelamentos (PARCSN, PERT, RELP, PARCMEI e especiais), situação fiscal (relatório em PDF, Caixa Postal do e-CAC, DTE, procurações), DCTFWeb e MIT, DARF/SICALC e pagamentos, monitoramento de eventos.
+- Carteira de clientes (com importação colando de planilha) e histórico de cada consulta, com os PDFs guardados.
+- DAS do MEI automático: todo mês, a partir do dia configurado, gera o DAS da competência anterior e envia por e-mail com o PDF; lembrete antes do vencimento; controle de pago.
+- Cota mensal de requisições por plano e custo estimado no SERPRO por conta.
+- Multiescritório: a plataforma é o CONTRATANTE do SERPRO. Contas marcadas como "próprias" pelo administrador usam as procurações do contratante; os demais escritórios instalam o próprio e-CNPJ e o sistema assina o termo de autorização (AUTENTICAPROCURADOR) automaticamente, então nenhum cliente acessa procurações de outro.
+- Ambiente de testes (trial) do SERPRO por padrão; produção é ativada na Administração.
+
 **Cobrança (Asaas)**
 - O dono da conta escolhe o plano e é levado à fatura do Asaas (Pix, boleto ou cartão). O plano é liberado quando o pagamento é confirmado.
 - Troca de plano a qualquer momento (o novo valor vale para a fatura em aberto e as próximas); a redução é bloqueada se a conta usa mais do que o plano menor permite.
@@ -98,6 +106,14 @@ O servidor aplica as migrações do banco ao iniciar (com trava, seguro para vá
 4. Funcionando, troque para a chave de **produção** e `ASAAS_AMBIENTE=producao`, e cadastre o webhook também na conta de produção.
 
 Você continua podendo mudar plano e situação manualmente na Administração (por exemplo, para um cliente que paga por fora). Suspensões manuais não são desfeitas por pagamentos automáticos.
+
+## Configurar o Integra Contador
+
+1. Na Área do Cliente do SERPRO, copie a **Consumer Key** e o **Consumer Secret**.
+2. No EmitAI, entre como administrador da plataforma, abra **Administração → Integra Contador** e informe: CNPJ e razão social do contratante, as duas chaves e o e-CNPJ (.pfx) do contratante com a senha. Mantenha em **Testes (trial)** até conferir.
+3. Marque como **"própria"** a conta do seu escritório (ela usará as procurações dadas ao CNPJ contratante).
+4. Faça uma consulta simples em **Fiscal → Serviços** (ex.: "Situação cadastral do MEI" de um cliente com procuração) e, funcionando, mude o ambiente para **Produção**.
+5. Cada cliente precisa ter dado **procuração eletrônica no e-CAC** ao CNPJ do escritório, com os serviços desejados.
 
 ## Antes de vender: o que ainda depende de você
 

@@ -128,7 +128,7 @@ async function carregarPrestadores() {
 
 // ------------------------------------------------------------------ roteamento
 const ROTAS = {
-  painel: telaPainel, emitir: telaEmitir, notas: telaNotas, empresas: telaEmpresas, municipios: telaMunicipios, certificados: telaCertificados,
+  painel: telaPainel, emitir: telaEmitir, notas: telaNotas, empresas: telaEmpresas, municipios: telaMunicipios, certificados: telaCertificados, fiscal: telaFiscal,
   equipe: telaEquipe, integracoes: telaIntegracoes, conta: telaConta, admin: telaAdmin,
 };
 
@@ -627,6 +627,222 @@ async function telaDivulgar(alvo) {
   });
 }
 
+// ------------------------------------------------------------------ fiscal (Integra Contador)
+const STATUS_DAS = { gerado: ['selo-info', 'Gerado'], enviado: ['selo-alerta', 'Enviado ao cliente'], pago: ['selo-ok', 'Pago'], erro: ['selo-erro', 'Erro'] };
+const CUSTO_TXT = { consulta: 'Consulta', emissao: 'Emissão', declaracao: 'Declaração' };
+const compAnterior = () => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`; };
+const fmtComp = (c) => (c ? `${c.slice(4)}/${c.slice(0, 4)}` : '');
+
+function abasFiscal(ativa, cfg) {
+  const trial = cfg?.ambiente !== 'producao';
+  return `<div class="cabecalho-pagina"><div><h1>Fiscal</h1><p>Serviços da Receita Federal pelo Integra Contador: DAS do MEI e do Simples, declarações, parcelamentos, situação fiscal e mais.</p></div>
+      ${ativa === 'clientes' && pode('emitir') ? '<button class="btn btn-primario" data-acao="novo-contribuinte">Adicionar cliente</button>' : ''}</div>
+    ${trial ? '<div class="mensagem alerta" style="margin-bottom:14px"><b>Ambiente de testes do SERPRO.</b>As respostas são fictícias e não há custo. A administração da plataforma ativa a produção.</div>' : ''}
+    ${cfg ? `<p class="sub" style="margin:-6px 0 12px">Uso no mês: ${cfg.uso.total} de ${cfg.limite} requisições do plano.</p>` : ''}
+    <nav class="abas">${[['das', 'DAS MEI', ''], ['clientes', 'Clientes', '/clientes'], ['servicos', 'Serviços', '/servicos'], ['historico', 'Histórico', '/historico'], ['config', 'Configuração', '/config']]
+      .map(([k, t, c]) => `<a href="#/fiscal${c}"${k === ativa ? ' aria-current="page"' : ''}>${t}</a>`).join('')}</nav>`;
+}
+
+async function telaFiscal(alvo, aba = 'das') {
+  const cfg = await api('/fiscal/config');
+  estado.fiscalCfg = cfg;
+  if (aba === 'clientes') return telaContribuintes(alvo, cfg);
+  if (aba === 'servicos') return telaServicosFiscais(alvo, cfg);
+  if (aba === 'historico') return telaHistoricoFiscal(alvo, cfg);
+  if (aba === 'config') return telaConfigFiscal(alvo, cfg);
+  return telaDasMei(alvo, cfg);
+}
+
+async function telaDasMei(alvo, cfg) {
+  const comp = estado.compDas || compAnterior();
+  const { itens, competencia } = await api(`/fiscal/das-mei?competencia=${comp}`);
+  const n = (st) => itens.filter((i) => i.status === st).length;
+  alvo.innerHTML = `${abasFiscal('das', cfg)}
+    <div class="barra-filtros">
+      <label class="campo"><span class="sr">Competência</span><input type="month" id="comp-das" value="${competencia.slice(0, 4)}-${competencia.slice(4)}" aria-label="Competência"></label>
+      ${pode('emitir') && itens.length ? '<button class="btn btn-primario" data-acao="gerar-todos-das">Gerar e enviar todos</button>' : ''}
+      <span class="sub" style="align-self:center">${itens.length} MEI · ${n('enviado')} enviados · ${n('pago')} pagos · ${n('erro')} com erro</span>
+    </div>
+    ${itens.length ? `<div class="tabela-wrap"><table class="tabela"><thead><tr><th>Cliente</th><th>Situação</th><th class="num">Valor</th><th>Vencimento</th><th>Envio</th><th></th></tr></thead><tbody>
+      ${itens.map((i) => `<tr><td><strong>${h(i.nome)}</strong><span class="sub">${h(fmtDoc(i.documento))}${i.das_automatico ? ' · automático' : ''}</span></td>
+        <td>${i.status ? `<span class="selo ${STATUS_DAS[i.status][0]}">${STATUS_DAS[i.status][1]}</span>${i.erro ? `<span class="sub" title="${h(i.erro)}">${h(i.erro.slice(0, 60))}</span>` : ''}` : '<span class="selo selo-neutro">Não gerado</span>'}</td>
+        <td class="num">${i.valor ? brl(i.valor) : ''}</td><td>${data(i.vencimento)}</td>
+        <td>${i.enviado_em ? dataHora(i.enviado_em) : (i.email ? '' : '<span class="sub">sem e-mail</span>')}</td>
+        <td class="acoes">
+          ${i.documento_id ? `<a class="btn btn-texto btn-pequeno" target="_blank" rel="noopener" href="${API}/fiscal/documentos/${i.documento_id}">PDF</a>` : ''}
+          ${pode('emitir') && i.status !== 'pago' ? `<button class="btn btn-texto btn-pequeno" data-acao="gerar-das" data-id="${i.contribuinte_id}">${i.status ? 'Gerar de novo' : 'Gerar'}</button>` : ''}
+          ${pode('emitir') && i.documento_id && i.email && i.status !== 'pago' ? `<button class="btn btn-texto btn-pequeno" data-acao="enviar-das" data-id="${i.id}">Reenviar</button>` : ''}
+          ${pode('emitir') && i.id && i.status !== 'erro' ? `<button class="btn btn-texto btn-pequeno" data-acao="pago-das" data-id="${i.id}" data-pago="${i.status !== 'pago'}">${i.status === 'pago' ? 'Desfazer pago' : 'Marcar pago'}</button>` : ''}
+        </td></tr>`).join('')}
+    </tbody></table></div>`
+    : `<div class="tabela-wrap"><div class="vazio"><strong>Nenhum cliente MEI na carteira</strong>Cadastre seus clientes MEI para gerar e enviar o DAS todo mês.<br><a class="btn btn-primario" href="#/fiscal/clientes">Ir para clientes</a></div></div>`}`;
+  $('#comp-das').addEventListener('change', (e) => { estado.compDas = e.target.value.replace('-', ''); telaDasMei(alvo, cfg); });
+}
+
+async function telaContribuintes(alvo, cfg) {
+  const lista = await api('/fiscal/contribuintes');
+  estado.contribuintes = lista;
+  alvo.innerHTML = `${abasFiscal('clientes', cfg)}
+    ${lista.length ? `<div class="tabela-wrap"><table class="tabela"><thead><tr><th>Cliente</th><th>Regime</th><th>Contato</th><th>DAS automático</th></tr></thead><tbody>
+      ${lista.map((c) => `<tr class="clicavel" data-acao="editar-contribuinte" data-id="${c.id}" tabindex="0"><td><strong>${h(c.nome)}</strong><span class="sub">${h(fmtDoc(c.documento))}</span></td>
+        <td>${h(c.regime)}</td><td>${h(c.email || '')}<span class="sub">${h(c.telefone || '')}</span></td><td>${c.dasAutomatico ? 'Sim' : '—'}</td></tr>`).join('')}
+    </tbody></table></div>`
+    : `<div class="tabela-wrap"><div class="vazio"><strong>Carteira vazia</strong>Adicione os clientes que deram procuração ao seu escritório no e-CAC.</div></div>`}
+    ${pode('emitir') ? `<form class="bloco" id="form-importar" style="margin-top:16px"><h2>Importar vários de uma vez</h2>
+      <p class="sub" style="margin-bottom:10px">Uma linha por cliente: CNPJ;Nome;E-mail;Regime (MEI, SN, LP, LR, PF). Pode colar de uma planilha.</p>
+      <textarea name="texto" placeholder="11.222.333/0001-81;Maria Doces;maria@email.com;MEI"></textarea>
+      <button class="btn btn-secundario" style="margin-top:10px">Importar</button></form>` : ''}`;
+  $('#form-importar')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const r = await api('/fiscal/contribuintes/importar', { metodo: 'POST', corpo: { texto: e.target.texto.value } });
+      toast(`${r.criados} cliente(s) importado(s)${r.ignorados.length ? `; ${r.ignorados.length} linha(s) ignorada(s): ${r.ignorados.slice(0, 3).map((i) => `linha ${i.linha} (${i.motivo})`).join('; ')}` : ''}.`, r.ignorados.length ? 'erro' : '');
+      telaContribuintes(alvo, cfg);
+    } catch (x) { toast(x.message, 'erro'); }
+  });
+}
+
+function abrirContribuinte(c) {
+  const f = $('#form-contribuinte');
+  f.reset();
+  preencherForm(f, c || { regime: 'MEI' });
+  $('[data-titulo]', f).textContent = c ? c.nome : 'Adicionar cliente';
+  $('[data-acao=remover-contribuinte]', f).classList.toggle('oculto', !c);
+  $('.msg-form', f).textContent = '';
+  $('#dlg-contribuinte').showModal();
+}
+
+async function telaServicosFiscais(alvo, cfg) {
+  const [catalogo, contribuintes] = await Promise.all([estado.catalogoFiscal || api('/fiscal/catalogo'), api('/fiscal/contribuintes')]);
+  estado.catalogoFiscal = catalogo;
+  const grupos = [...new Set(catalogo.map((s) => s.grupo))];
+  const sel = estado.servicoFiscal || catalogo.find((s) => s.destaque)?.codigo;
+  alvo.innerHTML = `${abasFiscal('servicos', cfg)}
+    <div class="fiscal-layout">
+      <nav class="fiscal-catalogo" aria-label="Serviços">
+        <input type="search" id="busca-servico" placeholder="Buscar serviço" aria-label="Buscar serviço">
+        ${grupos.map((g) => `<details open><summary>${h(g)}</summary>${catalogo.filter((s) => s.grupo === g).map((s) =>
+          `<button type="button" class="servico-item${s.codigo === sel ? ' ativo' : ''}" data-acao="escolher-servico" data-codigo="${s.codigo}" data-busca="${h((s.nome + ' ' + s.descricao + ' ' + s.codigo).toLowerCase())}">${h(s.nome)}<small>${CUSTO_TXT[s.custo]}</small></button>`).join('')}</details>`).join('')}
+      </nav>
+      <section class="bloco" id="painel-servico"></section>
+    </div>`;
+  $('#busca-servico').addEventListener('input', (e) => {
+    const t = e.target.value.toLowerCase();
+    $$('.servico-item').forEach((b) => b.classList.toggle('oculto', t && !b.dataset.busca.includes(t)));
+  });
+  estado.contribuintesFiscal = contribuintes;
+  mostrarServico(sel);
+}
+
+function mostrarServico(codigo) {
+  estado.servicoFiscal = codigo;
+  $$('.servico-item').forEach((b) => b.classList.toggle('ativo', b.dataset.codigo === codigo));
+  const s = estado.catalogoFiscal.find((x) => x.codigo === codigo);
+  const painel = $('#painel-servico');
+  if (!s) { painel.innerHTML = '<p class="sub">Escolha um serviço.</p>'; return; }
+  const campo = (c) => {
+    const tipo = { periodo: 'month', ano: 'number', data8: 'date', numero: 'number', mes: 'number' }[c.tipo] || 'text';
+    if (c.tipo === 'select') return `<label class="campo c6"><span>${h(c.rotulo)}</span><select name="${c.nome}">${c.opcoes.map(([v, t]) => `<option value="${h(v)}"${v === c.valorPadrao ? ' selected' : ''}>${h(t)}</option>`).join('')}</select></label>`;
+    return `<label class="campo c6"><span>${h(c.rotulo)}${c.obrigatorio ? '' : ' <small>opcional</small>'}</span><input name="${c.nome}" type="${tipo}" data-tipo="${c.tipo}" ${c.tipo === 'ano' ? 'min="2000" max="2100" placeholder="2026"' : ''} value="${h(c.valorPadrao || '')}"${c.obrigatorio ? ' required' : ''}></label>`;
+  };
+  painel.innerHTML = `<h2>${h(s.nome)}</h2><p class="sub" style="margin:-8px 0 14px">${h(s.descricao)} <span class="selo selo-neutro">${CUSTO_TXT[s.custo]}</span> <span class="sub">${h(s.codigo)}</span></p>
+    <form id="form-servico" class="grade">
+      <label class="campo c6"><span>Contribuinte</span><input name="contribuinte" list="lista-contribuintes" placeholder="CNPJ/CPF ou escolha da carteira" required></label>
+      <datalist id="lista-contribuintes">${(estado.contribuintesFiscal || []).map((c) => `<option value="${h(c.documento)}">${h(c.nome)}</option>`).join('')}</datalist>
+      ${s.campos.map(campo).join('')}
+      ${s.modeloJson ? `<label class="campo c12"><span>Dados (JSON) <small>edite a partir do modelo; formato definido pela Receita</small></span><textarea name="json" class="codigo" style="min-height:180px">${h(JSON.stringify(s.modeloJson, null, 2))}</textarea></label>` : ''}
+      <div class="c12" style="display:flex;gap:10px;align-items:center">
+        <button class="btn btn-primario" type="submit">${s.tipo === 'Declarar' ? 'Transmitir' : s.tipo === 'Emitir' ? 'Emitir' : 'Consultar'}</button>
+        ${s.tipo === 'Declarar' ? '<span class="sub">Transmissões exigem perfil de administrador e têm efeito legal.</span>' : ''}
+      </div>
+    </form>
+    <div id="resultado-servico" style="margin-top:18px"></div>`;
+  $('#form-servico').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const valores = {};
+    for (const el of f.elements) {
+      if (!el.name || ['contribuinte', 'json'].includes(el.name) || el.value === '') continue;
+      valores[el.name] = el.dataset.tipo === 'periodo' ? el.value.replace('-', '') : el.dataset.tipo === 'data8' ? el.value.replace(/-/g, '') : el.value;
+    }
+    if (s.tipo === 'Declarar' && !confirmar('Transmitir esta declaração à Receita Federal?')) return;
+    const botao = f.querySelector('button[type=submit]');
+    botao.disabled = true;
+    const out = $('#resultado-servico');
+    out.innerHTML = '<p class="sub">Consultando a Receita…</p>';
+    try {
+      const r = await api('/fiscal/executar', { metodo: 'POST', corpo: { codigo: s.codigo, contribuinte: f.contribuinte.value, valores, json: f.json?.value } });
+      out.innerHTML = resultadoFiscal(r);
+    } catch (x) {
+      out.innerHTML = mensagensHtml(x.erros?.length ? x.erros : [{ mensagem: x.message }], 'erro');
+    } finally { botao.disabled = false; }
+  });
+}
+
+function resultadoFiscal(r) {
+  const msgs = (r.mensagens || []).map((m) => ({ codigo: m.codigo, mensagem: m.texto }));
+  return `${mensagensHtml(msgs, r.sucesso ? 'ok' : 'erro')}
+    ${r.documentos?.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0">${r.documentos.map((d) => `<a class="btn btn-primario" target="_blank" rel="noopener" href="${API}/fiscal/documentos/${d.id}">Abrir ${h(d.nome)}</a>`).join('')}</div>` : ''}
+    ${r.dados && JSON.stringify(r.dados) !== '{}' ? `<details${r.documentos?.length ? '' : ' open'}><summary class="sub">Dados retornados pela Receita</summary><pre class="xml">${h(JSON.stringify(r.dados, null, 2))}</pre></details>` : ''}`;
+}
+
+async function telaHistoricoFiscal(alvo, cfg) {
+  const hist = await api('/fiscal/historico?limite=200');
+  const nomes = Object.fromEntries((estado.catalogoFiscal || await api('/fiscal/catalogo')).map((s) => [s.codigo, s.nome]));
+  alvo.innerHTML = `${abasFiscal('historico', cfg)}
+    <div class="indicadores" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+      <div class="indicador"><dt>Consultas no mês</dt><dd>${cfg.uso.consulta}</dd></div>
+      <div class="indicador"><dt>Emissões no mês</dt><dd>${cfg.uso.emissao}</dd></div>
+      <div class="indicador"><dt>Declarações no mês</dt><dd>${cfg.uso.declaracao}</dd></div>
+      <div class="indicador"><dt>Uso do plano</dt><dd>${cfg.uso.total}<small> de ${cfg.limite}</small></dd></div>
+    </div>
+    ${hist.length ? `<div class="tabela-wrap"><table class="tabela"><thead><tr><th>Quando</th><th>Serviço</th><th>Contribuinte</th><th>Resultado</th><th>Quem</th><th></th></tr></thead><tbody>
+      ${hist.map((c) => `<tr><td>${dataHora(c.criado_em)}</td><td>${h(nomes[c.codigo] || c.codigo)}<span class="sub">${CUSTO_TXT[c.categoria]}${c.ambiente !== 'producao' ? ' · teste' : ''}</span></td>
+        <td>${h(fmtDoc(c.contribuinte))}</td>
+        <td>${c.sucesso ? '<span class="selo selo-ok">Sucesso</span>' : `<span class="selo selo-erro">Erro</span><span class="sub">${h((c.mensagens?.[0]?.texto || '').slice(0, 70))}</span>`}</td>
+        <td>${h(c.usuario || { api: 'API', automatico: 'Automático' }[c.origem] || '')}</td>
+        <td class="acoes">${(c.documentos || []).map((d) => `<a class="btn btn-texto btn-pequeno" target="_blank" rel="noopener" href="${API}/fiscal/documentos/${d.id}">PDF</a>`).join('')}
+          <button class="btn btn-texto btn-pequeno" data-acao="ver-chamada" data-id="${c.id}">Detalhes</button></td></tr>`).join('')}
+    </tbody></table></div>` : '<div class="tabela-wrap"><div class="vazio"><strong>Nenhuma consulta ainda</strong>As consultas e emissões feitas aparecem aqui.</div></div>'}`;
+}
+
+async function telaConfigFiscal(alvo, cfg) {
+  const p = cfg.procurador;
+  const editar = pode('prestadores');
+  alvo.innerHTML = `${abasFiscal('config', cfg)}
+    <div class="duas-colunas">
+      <form class="bloco" id="form-procurador"><h2>Certificado do escritório (procurador)</h2>
+        ${p.usarContratante ? '<div class="mensagem ok" style="margin-bottom:12px"><b>Conta da própria plataforma.</b>As consultas usam o certificado e as procurações do contratante do Integra Contador.</div>' : `
+        <p class="sub" style="margin-bottom:12px">Seus clientes dão procuração no e-CAC ao CNPJ do seu escritório. Instale aqui o e-CNPJ do escritório: com ele assinamos o termo de autorização exigido pelo SERPRO.</p>
+        <p style="margin-bottom:12px">${p.certificado ? `<b>${h(p.certificado.titular)}</b>, ${h(fmtDoc(p.certificado.documento || ''))}, válido até ${data(p.certificado.validoAte)}.` : '<span class="selo selo-erro">Nenhum certificado instalado</span>'}</p>
+        ${editar ? `<div class="grade"><label class="campo c6"><span>e-CNPJ do escritório (.pfx)</span><input type="file" name="pfx" accept=".pfx,.p12"></label>
+          <label class="campo c6"><span>Senha</span><input type="password" name="senha" autocomplete="off"></label>
+          <div class="c12"><button class="btn btn-primario">Instalar certificado</button></div></div>` : ''}`}
+      </form>
+      ${editar ? `<form class="bloco" id="form-das-config"><h2>DAS do MEI automático</h2>
+        <div class="grade">
+          <label class="campo c6"><span>Gerar a partir do dia</span><input type="number" name="diaDas" min="1" max="19" value="${p.diaDas}"></label>
+          <label class="campo c6"><span>Lembrete antes do vencimento (dias)</span><input type="number" name="lembreteDias" min="0" max="10" value="${p.lembreteDias}"></label>
+          <p class="sub c12">Todo mês, a partir do dia escolhido, geramos o DAS da competência anterior para os clientes com "DAS automático" e enviamos por e-mail com o PDF. O vencimento é dia 20.</p>
+          <div class="c12"><button class="btn btn-secundario">Salvar</button></div>
+        </div></form>` : ''}
+    </div>`;
+  $('#form-procurador')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const arq = e.target.pfx?.files[0];
+    if (!arq) return toast('Escolha o arquivo do certificado.', 'erro');
+    const bytes = new Uint8Array(await arq.arrayBuffer());
+    let bin = ''; for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode(...bytes.subarray(i, i + 8192));
+    try { await api('/fiscal/procurador', { metodo: 'PUT', corpo: { pfxBase64: btoa(bin), senha: e.target.senha.value } }); toast('Certificado instalado.'); telaFiscal(alvo, 'config'); }
+    catch (x) { toast(x.message, 'erro'); }
+  });
+  $('#form-das-config')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try { await api('/fiscal/procurador', { metodo: 'PUT', corpo: { diaDas: Number(e.target.diaDas.value), lembreteDias: Number(e.target.lembreteDias.value) } }); toast('Salvo.'); }
+    catch (x) { toast(x.message, 'erro'); }
+  });
+}
+
 // ------------------------------------------------------------------ municípios
 async function telaMunicipios(alvo) {
   const lista = await api('/municipios');
@@ -838,7 +1054,7 @@ const DESCRICAO_ACAO = {
 // ------------------------------------------------------------------ administração
 async function telaAdmin(alvo) {
   if (!estado.eu.usuario.superadmin) { location.hash = '#/painel'; return; }
-  const [resumo, contas] = await Promise.all([api('/admin/resumo'), api('/admin/contas')]);
+  const [resumo, contas, integra] = await Promise.all([api('/admin/resumo'), api('/admin/contas'), api('/admin/integra')]);
   const planos = estado.info.planos;
   alvo.innerHTML = `
     <div class="cabecalho-pagina"><div><h1>Administração da plataforma</h1><p>Contas de clientes, planos e situação.</p></div></div>
@@ -854,7 +1070,37 @@ async function telaAdmin(alvo) {
         <td><select data-acao-change="admin-status" data-id="${c.id}" aria-label="Situação de ${h(c.nome)}">${['ativa', 'suspensa', 'cancelada'].map((s) => `<option${s === c.status ? ' selected' : ''}>${s}</option>`).join('')}</select><span class="sub">${h(STATUS_ASSINATURA[c.assinatura_status] || '')}</span></td>
         <td><input type="date" value="${c.teste_ate ? c.teste_ate.slice(0, 10) : ''}" data-acao-change="admin-teste" data-id="${c.id}" aria-label="Fim do teste de ${h(c.nome)}"></td>
         <td class="num">${c.prestadores}</td><td class="num">${c.notas_mes}</td><td>${data(c.criado_em)}</td></tr>`).join('')}
-    </tbody></table></div>`;
+    </tbody></table></div>
+    ${adminIntegra(integra)}`;
+}
+
+function adminIntegra({ config: c, consumo }) {
+  const custo = (x) => x.consulta * 0.24 + x.emissao * 0.32 + x.declaracao * 0.40;
+  const total = consumo.reduce((a, x) => a + custo(x), 0);
+  return `<div class="secao-titulo"><h2>Integra Contador (SERPRO)</h2></div>
+    <div class="duas-colunas">
+      <form class="bloco" id="form-integra"><h2>Contrato com o SERPRO</h2>
+        <p class="sub" style="margin-bottom:12px">Situação: ${c.ambiente === 'producao' ? '<span class="selo selo-ok">Produção</span>' : '<span class="selo selo-alerta">Testes (trial)</span>'}
+          ${c.temChaves ? ' · chaves cadastradas' : ' · sem chaves'} ${c.certificado?.titular ? ` · certificado de ${h(c.certificado.titular)}, válido até ${data(c.certificado.validoAte)}` : ''}</p>
+        <div class="grade">
+          <label class="campo c4"><span>Ambiente</span><select name="ambiente"><option value="trial"${c.ambiente !== 'producao' ? ' selected' : ''}>Testes (trial)</option><option value="producao"${c.ambiente === 'producao' ? ' selected' : ''}>Produção</option></select></label>
+          <label class="campo c4"><span>CNPJ do contratante</span><input name="contratanteDocumento" value="${h(c.contratante?.documento || '')}"></label>
+          <label class="campo c4"><span>Razão social</span><input name="contratanteNome" value="${h(c.contratante?.nome || '')}"></label>
+          <label class="campo c6"><span>Consumer Key</span><input name="consumerKey" autocomplete="off" placeholder="${c.temChaves ? '•••••• (manter a atual)' : ''}"></label>
+          <label class="campo c6"><span>Consumer Secret</span><input name="consumerSecret" type="password" autocomplete="off" placeholder="${c.temChaves ? '•••••• (manter a atual)' : ''}"></label>
+          <label class="campo c6"><span>e-CNPJ do contratante (.pfx)</span><input type="file" name="pfx" accept=".pfx,.p12"></label>
+          <label class="campo c6"><span>Senha do certificado</span><input type="password" name="senha" autocomplete="off"></label>
+          <div class="c12"><button class="btn btn-primario" type="button" data-acao="salvar-integra">Salvar</button></div>
+        </div>
+        <p class="sub" style="margin-top:10px">As chaves e o certificado ficam criptografados e nunca são exibidos de novo.</p>
+      </form>
+      <section class="bloco"><h2>Consumo no mês</h2>
+        <p class="sub" style="margin-bottom:10px">Custo estimado no SERPRO (1ª faixa): <b>${brl(total)}</b>. Marque "própria" só nas contas do seu escritório: elas usam as procurações do contratante.</p>
+        <table class="tabela"><thead><tr><th>Conta</th><th class="num">Requisições</th><th class="num">Custo</th><th>Própria</th></tr></thead><tbody>
+        ${consumo.map((x) => `<tr><td>${h(x.nome)}</td><td class="num">${x.total}</td><td class="num">${brl(custo(x))}</td>
+          <td><input type="checkbox" data-acao-change="admin-propria" data-id="${x.id}"${x.conta_propria ? ' checked' : ''} aria-label="Conta própria: ${h(x.nome)}"></td></tr>`).join('')}
+        </tbody></table></section>
+    </div>`;
 }
 
 // ------------------------------------------------------------------ ações (delegação)
@@ -1025,12 +1271,74 @@ const ACOES = {
   'copiar-link-venda': async () => {
     try { await navigator.clipboard.writeText($('#link-venda').value); toast('Link copiado.'); } catch { $('#link-venda').select(); }
   },
+  'novo-contribuinte': () => abrirContribuinte(null),
+  'editar-contribuinte': (el) => abrirContribuinte(estado.contribuintes.find((c) => c.id === el.dataset.id)),
+  'salvar-contribuinte': async () => {
+    const f = $('#form-contribuinte');
+    const d = lerForm(f);
+    d.dasAutomatico = f.dasAutomatico.checked;
+    try { await api(d.id ? `/fiscal/contribuintes/${d.id}` : '/fiscal/contribuintes', { metodo: d.id ? 'PUT' : 'POST', corpo: d }); $('#dlg-contribuinte').close(); toast('Cliente salvo.'); navegar(); }
+    catch (e) { $('.msg-form', f).textContent = e.message; }
+  },
+  'remover-contribuinte': async () => {
+    const f = $('#form-contribuinte');
+    if (!confirmar('Remover este cliente da carteira?')) return;
+    await api(`/fiscal/contribuintes/${f.id.value}`, { metodo: 'DELETE' }); $('#dlg-contribuinte').close(); navegar();
+  },
+  'escolher-servico': (el) => mostrarServico(el.dataset.codigo),
+  'gerar-das': async (el) => {
+    el.disabled = true;
+    try {
+      const r = await api('/fiscal/das-mei/gerar', { metodo: 'POST', corpo: { contribuinteId: el.dataset.id, competencia: estado.compDas || compAnterior() } });
+      toast(r.sucesso ? 'DAS gerado.' : 'A Receita não gerou o DAS: ' + r.mensagens.map((m) => m.texto).join(' '), r.sucesso ? '' : 'erro');
+    } catch (e) { toast(e.message, 'erro'); }
+    navegar();
+  },
+  'gerar-todos-das': async (el) => {
+    if (!confirmar('Gerar o DAS de todos os MEI desta competência e enviar por e-mail a quem tiver e-mail cadastrado?')) return;
+    el.disabled = true; el.textContent = 'Gerando…';
+    try {
+      const r = await api('/fiscal/das-mei/gerar-todos', { metodo: 'POST', corpo: { competencia: estado.compDas || compAnterior() } });
+      toast(`${r.gerados} DAS gerado(s)${r.erros.length ? `; ${r.erros.length} com erro` : ''}.`, r.erros.length ? 'erro' : '');
+    } catch (e) { toast(e.message, 'erro'); }
+    navegar();
+  },
+  'enviar-das': async (el) => {
+    try { await api(`/fiscal/das-mei/${el.dataset.id}/enviar`, { metodo: 'POST' }); toast('DAS reenviado ao cliente.'); navegar(); } catch (e) { toast(e.message, 'erro'); }
+  },
+  'pago-das': async (el) => {
+    try { await api(`/fiscal/das-mei/${el.dataset.id}`, { metodo: 'PUT', corpo: { pago: el.dataset.pago === 'true' } }); navegar(); } catch (e) { toast(e.message, 'erro'); }
+  },
+  'ver-chamada': async (el) => {
+    const r = await api(`/fiscal/historico/${el.dataset.id}`);
+    const d = $('#dlg-xml');
+    $('[data-titulo]', d).textContent = `${r.codigo} · ${fmtDoc(r.contribuinte)}`;
+    $('[data-xml]', d).textContent = JSON.stringify({ mensagens: r.mensagens, dados: r.resposta }, null, 2);
+    d.showModal();
+  },
+  'salvar-integra': async (el) => {
+    const f = $('#form-integra');
+    const corpo = { ambiente: f.ambiente.value, contratanteDocumento: f.contratanteDocumento.value, contratanteNome: f.contratanteNome.value };
+    if (f.consumerKey.value || f.consumerSecret.value) Object.assign(corpo, { consumerKey: f.consumerKey.value, consumerSecret: f.consumerSecret.value });
+    const arq = f.pfx.files[0];
+    if (arq) {
+      const bytes = new Uint8Array(await arq.arrayBuffer());
+      let bin = ''; for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode(...bytes.subarray(i, i + 8192));
+      Object.assign(corpo, { pfxBase64: btoa(bin), senha: f.senha.value });
+    }
+    if (corpo.ambiente === 'producao' && !confirmar('Ativar o Integra Contador em PRODUÇÃO? As chamadas passam a ser cobradas pelo SERPRO.')) return;
+    el.disabled = true;
+    try { await api('/admin/integra', { metodo: 'PUT', corpo }); toast('Integra Contador configurado.'); navegar(); } catch (e) { toast(e.message, 'erro'); } finally { el.disabled = false; }
+  },
   'copiar-segredo': async () => {
     try { await navigator.clipboard.writeText($('#dlg-segredo [data-segredo]').textContent); toast('Copiado.'); } catch { toast('Selecione e copie manualmente.', 'erro'); }
   },
 };
 
 const ACOES_CHANGE = {
+  'admin-propria': async (el) => {
+    try { await api(`/admin/contas/${el.dataset.id}/integra`, { metodo: 'PUT', corpo: { contaPropria: el.checked } }); toast('Atualizado.'); } catch (e) { toast(e.message, 'erro'); }
+  },
   'status-pedido': async (el) => {
     try { await api(`/pedidos-certificado/${el.dataset.id}`, { metodo: 'PUT', corpo: { status: el.value } }); toast('Situação atualizada.'); }
     catch (e) { toast(e.message, 'erro'); }

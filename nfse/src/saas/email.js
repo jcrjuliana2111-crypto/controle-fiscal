@@ -17,8 +17,9 @@ ${botao ? `<p style="margin:28px 0"><a href="${botao.url}" style="background:#4f
 <p style="font-size:12px;color:#777">Se o botão não funcionar, copie este endereço: ${botao.url}</p>` : ''}
 <p style="font-size:12px;color:#999;margin-top:28px">${config.nomeApp}</p></div></body></html>`;
 
-export async function enviarEmail({ para, assunto, titulo, corpo, botao }) {
-  const msg = { from: `${config.nomeApp} <${config.emailRemetente}>`, to: para, subject: assunto, html: layout(titulo, corpo, botao) };
+export async function enviarEmail({ para, assunto, titulo, corpo, botao, anexos }) {
+  const msg = { from: `${config.nomeApp} <${config.emailRemetente}>`, to: para, subject: assunto, html: layout(titulo, corpo, botao),
+    ...(anexos?.length ? { attachments: anexos.map((a) => ({ filename: a.nome, content: a.conteudo, contentType: a.tipo || 'application/pdf' })) } : {}) };
   const t = obterTransporte();
   if (!t) {
     caixaDeSaida.push({ ...msg, link: botao?.url });

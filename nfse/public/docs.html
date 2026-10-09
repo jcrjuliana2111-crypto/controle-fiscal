@@ -92,6 +92,13 @@ const esperado = crypto.createHmac('sha256', SEGREDO).update(`${t}.${corpoBruto}
 const valido = crypto.timingSafeEqual(Buffer.from(esperado), Buffer.from(v1));</code></pre>
     <p>Responda com status 2xx em até 10 segundos. Falhas são reenviadas em 1, 5, 30, 120, 360 e 720 minutos.</p>
 
+    <h2 id="fiscal">Serviços da Receita (Integra Contador)</h2>
+    <ul>
+      <li><code>GET /fiscal/catalogo</code>: lista os serviços disponíveis, com campos de cada um.</li>
+      <li><code>POST /fiscal/executar</code> com <code>{ "codigo": "PGMEI.GERARDASPDF21", "contribuinte": "CNPJ", "valores": { "periodoApuracao": "202609" } }</code>. A resposta traz <code>mensagens</code>, <code>dados</code> e <code>documentos</code> (PDFs em <code>GET /fiscal/documentos/{id}</code>).</li>
+      <li><code>GET /fiscal/das-mei?competencia=AAAAMM</code> e <code>POST /fiscal/das-mei/gerar</code> com <code>{ "contribuinteId": "...", "competencia": "AAAAMM" }</code>.</li>
+    </ul>
+
     <h2 id="erros">Erros</h2>
     <p>Erros vêm como <code>{ "erro": "mensagem", "erros": [{ "campo": "...", "mensagem": "..." }] }</code>.</p>
     <table class="tabela-docs">

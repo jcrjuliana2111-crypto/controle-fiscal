@@ -1,12 +1,13 @@
-// Planos comerciais. Preços são sugestão — ajuste à sua estratégia.
+// Planos comerciais. fiscalMes = requisições ao Integra Contador (SERPRO) incluídas por mês.
+// Preços são sugestão — ajuste à sua estratégia.
 // Limite de notas conta apenas NFS-e autorizadas em PRODUÇÃO no mês corrente;
 // homologação é livre (respeitando o limite de requisições).
 
 export const PLANOS = {
-  teste: { nome: 'Teste grátis', preco: 0, notasMes: 30, prestadores: 2, usuarios: 2, api: true, webhooks: true },
-  essencial: { nome: 'Essencial', preco: 59, notasMes: 100, prestadores: 1, usuarios: 2, api: false, webhooks: false },
-  profissional: { nome: 'Profissional', preco: 149, notasMes: 500, prestadores: 5, usuarios: 5, api: true, webhooks: true },
-  escritorio: { nome: 'Escritório contábil', preco: 399, notasMes: 3000, prestadores: 60, usuarios: 20, api: true, webhooks: true },
+  teste: { nome: 'Teste grátis', preco: 0, notasMes: 30, prestadores: 2, usuarios: 2, api: true, webhooks: true, fiscalMes: 30 },
+  essencial: { nome: 'Essencial', preco: 59, notasMes: 100, prestadores: 1, usuarios: 2, api: false, webhooks: false, fiscalMes: 50 },
+  profissional: { nome: 'Profissional', preco: 149, notasMes: 500, prestadores: 5, usuarios: 5, api: true, webhooks: true, fiscalMes: 500 },
+  escritorio: { nome: 'Escritório contábil', preco: 399, notasMes: 3000, prestadores: 60, usuarios: 20, api: true, webhooks: true, fiscalMes: 3000 },
 };
 
 export function plano(id) {

@@ -4,6 +4,7 @@ import { PLANOS } from '../saas/planos.js';
 import { invalido, naoEncontrado } from '../saas/erros.js';
 import { auditar } from '../saas/auditoria.js';
 import * as mun from '../core/municipios.js';
+import * as fiscal from '../integra/servico.js';
 import { h, exigirSuperadmin } from './middleware.js';
 
 // Administração da plataforma (você, dono do SaaS).
@@ -33,6 +34,14 @@ r.put('/contas/:id', h(async (req, res) => {
   if (!c) throw naoEncontrado('Conta');
   await auditar({ ...req.quem, contaId: c.id }, 'admin.alterar_conta', c.id, { plano, status, testeAte });
   res.json(c);
+}));
+
+r.get('/integra', h(async (req, res) => res.json({ config: await fiscal.configPublica(), consumo: await fiscal.consumoPlataforma() })));
+r.put('/integra', express.json({ limit: '2mb' }), h(async (req, res) => res.json(await fiscal.salvarConfig(req.body || {}, req.quem))));
+r.put('/contas/:id/integra', h(async (req, res) => {
+  await fiscal.definirContaPropria(req.params.id, req.body?.contaPropria);
+  await auditar({ ...req.quem, contaId: req.params.id }, 'admin.integra_conta_propria', req.params.id, { contaPropria: !!req.body?.contaPropria });
+  res.json({ ok: true });
 }));
 
 r.put('/municipios/:codigo', h(async (req, res) => {

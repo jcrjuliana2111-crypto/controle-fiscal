@@ -16,6 +16,9 @@ import { h, exigir, exigirConta } from './middleware.js';
 import { config } from '../config.js';
 import * as cobranca from '../saas/cobranca.js';
 import * as certs from '../saas/certificados.js';
+import * as fiscal from '../integra/servico.js';
+import { servico as servicoIntegra } from '../integra/catalogo.js';
+import { pode } from '../saas/planos.js';
 import { limitar as limitarIp } from '../saas/limitador.js';
 
 const r = express.Router();
@@ -46,6 +49,51 @@ r.post('/publico/certificado/:slug', h(async (req, res) => {
 
 // Daqui em diante, tudo exige estar autenticado numa conta.
 r.use(exigirConta);
+
+// ------------------------------------------------------------ fiscal (Integra Contador)
+r.get('/fiscal/catalogo', exigir('ver'), (req, res) => res.json(fiscal.catalogoPublico()));
+r.get('/fiscal/config', exigir('ver'), h(async (req, res) => {
+  const [plat, proc, uso, sit] = await Promise.all([fiscal.configPublica(), fiscal.procuradorDaConta(req.quem.contaId), fiscal.usoDoMes(req.quem.contaId), contas.situacaoConta(req.quem.contaId)]);
+  res.json({ ambiente: plat.ambiente, contratante: plat.contratante, procurador: proc, uso, limite: sit.limites.fiscalMes ?? 0 });
+}));
+r.put('/fiscal/procurador', exigir('prestadores'), express.json({ limit: '2mb' }), h(async (req, res) => {
+  const p = await fiscal.salvarProcurador(req.quem.contaId, req.body || {});
+  await auditar(req.quem, 'integra.procurador', req.quem.contaId);
+  res.json(p);
+}));
+r.get('/fiscal/contribuintes', exigir('ver'), h(async (req, res) => res.json(await fiscal.listarContribuintes(req.quem.contaId, req.query))));
+r.post('/fiscal/contribuintes', exigir('emitir'), h(async (req, res) => res.status(201).json(await fiscal.salvarContribuinte(req.quem.contaId, req.body || {}))));
+r.post('/fiscal/contribuintes/importar', exigir('emitir'), h(async (req, res) => res.json(await fiscal.importarContribuintes(req.quem.contaId, req.body?.texto))));
+r.put('/fiscal/contribuintes/:id', exigir('emitir'), h(async (req, res) => res.json(await fiscal.salvarContribuinte(req.quem.contaId, { ...req.body, id: req.params.id }))));
+r.delete('/fiscal/contribuintes/:id', exigir('emitir'), h(async (req, res) => { await fiscal.removerContribuinte(req.quem.contaId, req.params.id); res.status(204).end(); }));
+r.post('/fiscal/executar', exigir('emitir'), h(async (req, res) => {
+  const s = servicoIntegra(req.body?.codigo);
+  if (s?.tipo === 'Declarar' && !pode(req.quem.papel, 'prestadores')) throw new ErroApp(403, 'Transmitir declarações exige perfil de administrador.');
+  limitar(`fiscal:${req.quem.contaId}`, { max: 60, janelaMs: 60_000 });
+  res.json(await fiscal.executar(req.quem, { ...req.body, origem: req.quem.viaApi ? 'api' : 'manual' }));
+}));
+r.get('/fiscal/historico', exigir('ver'), h(async (req, res) => res.json(await fiscal.historico(req.quem.contaId, req.query))));
+r.get('/fiscal/historico/:id', exigir('ver'), h(async (req, res) => res.json(await fiscal.respostaDaChamada(req.quem.contaId, req.params.id))));
+r.get('/fiscal/documentos/:id', exigir('ver'), h(async (req, res) => {
+  const d = await fiscal.documento(req.quem.contaId, req.params.id);
+  res.type('application/pdf').set('Content-Disposition', `${req.query.baixar ? 'attachment' : 'inline'}; filename="${d.nome_arquivo}"`).send(d.conteudo);
+}));
+r.get('/fiscal/das-mei', exigir('ver'), h(async (req, res) => res.json(await fiscal.listarDasMei(req.quem.contaId, req.query.competencia))));
+r.post('/fiscal/das-mei/gerar', exigir('emitir'), h(async (req, res) =>
+  res.json(await fiscal.gerarDasMei(req.quem, req.body?.contribuinteId, req.body?.competencia, { enviar: req.body?.enviar !== false }))));
+r.post('/fiscal/das-mei/gerar-todos', exigir('emitir'), h(async (req, res) => {
+  const { itens, competencia } = await fiscal.listarDasMei(req.quem.contaId, req.body?.competencia);
+  const resultado = { gerados: 0, erros: [] };
+  for (const i of itens.filter((x) => x.status !== 'pago')) {
+    try {
+      const r2 = await fiscal.gerarDasMei(req.quem, i.contribuinte_id, competencia, { enviar: req.body?.enviar !== false });
+      r2.sucesso ? resultado.gerados++ : resultado.erros.push({ nome: i.nome, motivo: r2.mensagens.map((m) => m.texto).join(' ') });
+    } catch (e) { resultado.erros.push({ nome: i.nome, motivo: e.message }); }
+  }
+  res.json(resultado);
+}));
+r.post('/fiscal/das-mei/:id/enviar', exigir('emitir'), h(async (req, res) => { await fiscal.enviarDas(req.quem.contaId, req.params.id); res.json({ ok: true }); }));
+r.put('/fiscal/das-mei/:id', exigir('emitir'), h(async (req, res) => { await fiscal.marcarDasPago(req.quem.contaId, req.params.id, req.body?.pago); res.json({ ok: true }); }));
 
 // ------------------------------------------------------------ certificados
 r.get('/certificados', exigir('ver'), h(async (req, res) => res.json({
