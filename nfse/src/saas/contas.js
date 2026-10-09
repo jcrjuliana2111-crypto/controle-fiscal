@@ -177,6 +177,7 @@ export async function situacaoConta(contaId) {
   return {
     id: c.id, nome: c.nome, documento: c.documento, status: c.status, plano: c.plano, nomePlano: p.nome,
     testeAte: c.teste_ate, testeExpirado, limites: p,
+    assinatura: { status: c.assinatura_status, planoContratado: c.plano_contratado, pagoAte: c.pago_ate, motivoSuspensao: c.motivo_suspensao },
     uso: { notasMes: uso.notas_mes, prestadores: uso.prestadores, usuarios: uso.usuarios },
   };
 }

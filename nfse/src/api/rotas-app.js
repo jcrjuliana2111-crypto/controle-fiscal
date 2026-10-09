@@ -14,6 +14,7 @@ import { calcular } from '../core/calculo.js';
 import { espelhoHtml } from '../espelho.js';
 import { h, exigir, exigirConta } from './middleware.js';
 import { config } from '../config.js';
+import * as cobranca from '../saas/cobranca.js';
 
 const r = express.Router();
 
@@ -27,8 +28,24 @@ r.get('/info', (req, res) => res.json({
 }));
 r.post('/calcular', (req, res) => res.json(calcular(req.body || {})));
 
+// Webhook do Asaas (público; autenticado pelo token configurado no painel do Asaas).
+r.post('/cobranca/asaas', h(async (req, res) => {
+  if (!cobranca.tokenWebhookValido(req.get('asaas-access-token'))) throw new ErroApp(401, 'Token do webhook inválido.');
+  const r2 = await cobranca.processarEvento(req.body || {});
+  res.json({ ok: true, ...r2 });
+}));
+
 // Daqui em diante, tudo exige estar autenticado numa conta.
 r.use(exigirConta);
+
+// ------------------------------------------------------------ assinatura
+r.get('/assinatura', exigir('ver'), h(async (req, res) => {
+  const dados = await cobranca.dadosAssinatura(req.quem.contaId);
+  const lista = req.quem.papel === 'dono' ? await cobranca.faturas(req.quem.contaId).catch(() => []) : [];
+  res.json({ ...dados, faturas: lista });
+}));
+r.post('/assinatura', exigir('conta'), h(async (req, res) => res.json(await cobranca.assinar(req.quem, req.body?.plano))));
+r.delete('/assinatura', exigir('conta'), h(async (req, res) => { await cobranca.cancelarAssinatura(req.quem); res.json({ ok: true }); }));
 
 // ------------------------------------------------------------ conta
 r.get('/conta', exigir('ver'), h(async (req, res) => res.json(await contas.situacaoConta(req.quem.contaId))));

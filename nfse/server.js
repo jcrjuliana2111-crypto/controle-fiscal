@@ -5,6 +5,7 @@ import { config, validarConfig } from './src/config.js';
 import { pool } from './src/db/pool.js';
 import { migrar } from './src/db/migrar.js';
 import { iniciarWorkerWebhooks } from './src/saas/webhooks.js';
+import { iniciarRotinaCobranca } from './src/saas/cobranca.js';
 import rotasAuth from './src/api/rotas-auth.js';
 import rotasApp from './src/api/rotas-app.js';
 import rotasAdmin from './src/api/rotas-admin.js';
@@ -48,6 +49,7 @@ async function iniciar() {
   if (!config.chaveMestra) console.warn('[nfse] AVISO: NFSE_MASTER_KEY não definida — usando chave de desenvolvimento.');
   await migrar();
   iniciarWorkerWebhooks();
+  iniciarRotinaCobranca();
   const srv = criarApp().listen(config.porta, config.host, () => console.log(`[nfse] ${config.nomeApp} em ${config.urlApp}`));
   const parar = () => { srv.close(() => pool.end().then(() => process.exit(0))); setTimeout(() => process.exit(0), 10_000).unref(); };
   process.on('SIGTERM', parar);

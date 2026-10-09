@@ -1,4 +1,4 @@
-# Emissor NFS-e (SaaS)
+# EmitAI — emissão de NFS-e (SaaS)
 
 Plataforma multiempresa para emissão de Nota Fiscal de Serviço Eletrônica, vendida por assinatura para escritórios contábeis e empresas de serviço.
 
@@ -19,6 +19,13 @@ Plataforma multiempresa para emissão de Nota Fiscal de Serviço Eletrônica, ve
 - Painel com faturamento, ISS do mês, uso do plano e certificados vencendo.
 - Integração: API REST com chaves de acesso e webhooks assinados (HMAC-SHA256) com reenvio automático. Documentação pública em `/docs.html`.
 - Histórico de atividades (quem fez o quê, quando e de qual IP).
+
+**Cobrança (Asaas)**
+- O dono da conta escolhe o plano e é levado à fatura do Asaas (Pix, boleto ou cartão). O plano é liberado quando o pagamento é confirmado.
+- Troca de plano a qualquer momento (o novo valor vale para a fatura em aberto e as próximas); a redução é bloqueada se a conta usa mais do que o plano menor permite.
+- Pagamento atrasado: aviso no sistema e, após `DIAS_TOLERANCIA` dias, suspensão automática da emissão, com e-mail ao dono. Pagou, liberou na hora.
+- Cancelamento: o plano continua até o fim do período pago; depois a emissão em produção é bloqueada (dados e notas continuam guardados).
+- Lista de faturas com link para pagar ou ver o recibo.
 
 **Para você (dono da plataforma)**
 - Página de vendas (`/`) com a tabela de planos lida do sistema.
@@ -76,12 +83,21 @@ Sem SMTP configurado, os e-mails (confirmação, convite, senha) aparecem no ter
 
 O servidor aplica as migrações do banco ao iniciar (com trava, seguro para várias instâncias). Para mais de uma instância, troque o limitador de tentativas em memória (`src/saas/limitador.js`) por Redis.
 
+## Configurar a cobrança (Asaas)
+
+1. No Asaas **sandbox** (conta de testes, gratuita): *Integrações → Chave de API* e copie a chave para `ASAAS_API_KEY`, com `ASAAS_AMBIENTE=sandbox`.
+2. *Integrações → Webhooks*: crie um webhook com a URL `https://SEU-DOMINIO/api/v1/cobranca/asaas`, defina um **token de autenticação** (o mesmo valor em `ASAAS_WEBHOOK_TOKEN`) e marque os eventos de **cobranças** e de **assinaturas**.
+3. Reinicie o sistema, entre como dono de uma conta, preencha o CNPJ/CPF em *Plano e conta* e clique em **Assinar**. No sandbox, simule o pagamento da fatura pelo painel do Asaas e veja o plano ser liberado.
+4. Funcionando, troque para a chave de **produção** e `ASAAS_AMBIENTE=producao`, e cadastre o webhook também na conta de produção.
+
+Você continua podendo mudar plano e situação manualmente na Administração (por exemplo, para um cliente que paga por fora). Suspensões manuais não são desfeitas por pagamentos automáticos.
+
 ## Antes de vender: o que ainda depende de você
 
-- **Cobrança automática.** Hoje a troca de plano é feita por você na tela de Administração e o cliente é orientado a falar com o `SUPPORT_EMAIL`. Falta integrar um meio de pagamento (Asaas, Stripe, Mercado Pago, Iugu…) para assinatura recorrente, que atualiza o plano e suspende a conta em caso de inadimplência.
+- **Ativar o Asaas** (veja "Configurar a cobrança" abaixo) e fazer um pagamento de teste no sandbox antes de usar a chave de produção.
 - **Homologação real.** Os leiautes foram implementados pelas especificações públicas e testados contra simuladores, mas este ambiente de desenvolvimento não acessa o gov.br. Emita em homologação com um certificado real no Portal Nacional, em São Paulo e em cada prefeitura ABRASF que for atender, cenário por cenário (PF, PJ, exterior, retenções, Simples Nacional).
 - **Documentos legais e LGPD.** Termos de uso, política de privacidade e contrato de tratamento de dados (você será operador de dados dos clientes e guardará certificados digitais). Revise com um advogado.
-- **Marca.** O nome vem de `APP_NAME`; troque também `public/assets/marca.svg`.
+- **Marca.** O nome vem de `APP_NAME` (padrão: EmitAI); troque também `public/assets/marca.svg` se tiver um logotipo.
 - **Prefeituras ABRASF.** Cadastre na Administração (configuração global) as prefeituras que seus clientes usam, para que eles não precisem configurar nada.
 - **Reforma tributária.** O grupo IBS/CBS está no nível mínimo; acompanhe as notas técnicas do Portal Nacional e o novo leiaute de São Paulo.
 
@@ -97,7 +113,7 @@ nfse/
 ├── data/municipios.json         # integrações nativas (São Paulo)
 ├── src/
 │   ├── db/                      # conexão e migrações SQL
-│   ├── saas/                    # contas, sessões, planos, equipe, webhooks, auditoria, e-mail
+│   ├── saas/                    # contas, sessões, planos, cobrança (Asaas), equipe, webhooks, auditoria, e-mail
 │   ├── api/                     # rotas e middleware (auth, CSRF, permissões)
 │   ├── core/                    # notas, empresas, municípios, cálculo, validação, certificado, assinatura
 │   ├── providers/               # nacional.js, abrasf.js, sao-paulo.js

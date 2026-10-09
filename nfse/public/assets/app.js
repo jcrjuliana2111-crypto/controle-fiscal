@@ -108,7 +108,10 @@ async function carregarSessao() {
 function renderAvisos() {
   const { usuario, conta } = estado.eu;
   const avisos = [];
-  if (conta?.status === 'suspensa') avisos.push(['erro', 'Esta conta está suspensa. A emissão de notas está bloqueada até a regularização.', '#/conta', 'Ver plano']);
+  const ass = conta?.assinatura || {};
+  if (conta?.status === 'suspensa') avisos.push(['erro', ass.motivoSuspensao === 'inadimplencia' ? 'Conta suspensa por falta de pagamento. Pague a fatura em aberto para liberar a emissão na hora.' : 'Esta conta está suspensa. A emissão de notas está bloqueada até a regularização.', '#/conta', 'Ver faturas']);
+  else if (ass.status === 'atrasada') avisos.push(['erro', 'Há uma fatura em aberto. Pague para evitar a suspensão da emissão.', '#/conta', 'Pagar fatura']);
+  else if (ass.status === 'aguardando_pagamento') avisos.push(['info', 'Assinatura criada. Assim que o pagamento for confirmado, o plano é liberado.', '#/conta', 'Ver fatura']);
   else if (conta?.plano === 'teste') {
     const dias = Math.ceil((new Date(conta.testeAte) - Date.now()) / 864e5);
     if (conta.testeExpirado) avisos.push(['erro', 'Seu período de teste terminou. A homologação continua liberada; para emitir em produção, assine um plano.', '#/conta', 'Ver planos']);
@@ -624,25 +627,58 @@ function mostrarSegredo(titulo, texto, segredo) {
 }
 
 // ------------------------------------------------------------------ conta e plano
+const STATUS_FATURA = {
+  PENDING: ['selo-alerta', 'Aguardando pagamento'], OVERDUE: ['selo-erro', 'Vencida'], RECEIVED: ['selo-ok', 'Paga'],
+  CONFIRMED: ['selo-ok', 'Paga'], RECEIVED_IN_CASH: ['selo-ok', 'Paga'], REFUNDED: ['selo-neutro', 'Estornada'],
+};
+const STATUS_ASSINATURA = {
+  nenhuma: 'Sem assinatura', aguardando_pagamento: 'Aguardando o primeiro pagamento', ativa: 'Assinatura ativa',
+  atrasada: 'Pagamento atrasado', cancelada: 'Assinatura cancelada',
+};
+
 async function telaConta(alvo) {
-  const [conta, auditoria] = await Promise.all([api('/conta'), pode('equipe') ? api('/auditoria?limite=30') : Promise.resolve([])]);
+  const ehDono = estado.eu.papel === 'dono';
+  const [conta, assinatura, auditoria] = await Promise.all([
+    api('/conta'), api('/assinatura'), pode('equipe') ? api('/auditoria?limite=30') : Promise.resolve([]),
+  ]);
   const planos = estado.info.planos.filter((p) => p.id !== 'teste');
-  const suporte = estado.info.suporte;
+  const viva = ['ativa', 'atrasada', 'aguardando_pagamento'].includes(assinatura.status);
+  const planoAtual = viva ? assinatura.planoContratado : conta.plano;
+  const situacao = conta.plano === 'teste' && !viva
+    ? (conta.testeExpirado ? 'O período de teste terminou. Assine um plano para voltar a emitir em produção.' : `Teste grátis até ${data(conta.testeAte)}.`)
+    : `${STATUS_ASSINATURA[assinatura.status] || ''}${assinatura.pagoAte ? `, pago até ${data(assinatura.pagoAte)}` : ''}.`;
+  const botaoPlano = (p) => {
+    if (!ehDono) return '';
+    if (!assinatura.disponivel) return '';
+    if (p.id === planoAtual && viva) return '<span class="selo selo-info">Seu plano</span>';
+    return `<button class="btn ${viva ? 'btn-secundario' : 'btn-primario'} btn-pequeno" data-acao="assinar" data-plano="${p.id}">${viva ? 'Mudar para este' : 'Assinar'}</button>`;
+  };
   alvo.innerHTML = `
     <div class="cabecalho-pagina"><div><h1>Plano e conta</h1></div></div>
     <div class="duas-colunas">
-      <section class="bloco"><h2>Plano atual: ${h(conta.nomePlano)}</h2>
-        <p class="sub" style="margin-bottom:14px">${conta.plano === 'teste' ? (conta.testeExpirado ? 'O período de teste terminou.' : `Teste grátis até ${data(conta.testeAte)}.`) : 'Assinatura ativa.'}</p>
-        <table class="tabela"><thead><tr><th>Plano</th><th class="num">Notas/mês</th><th class="num">Empresas</th><th class="num">Usuários</th><th>API</th><th class="num">Mensal</th></tr></thead><tbody>
-          ${planos.map((p) => `<tr${p.id === conta.plano ? ' style="background:var(--carimbo-claro)"' : ''}><td><strong>${h(p.nome)}</strong>${p.id === conta.plano ? ' <span class="selo selo-info">Atual</span>' : ''}</td>
-            <td class="num">${p.notasMes.toLocaleString('pt-BR')}</td><td class="num">${p.prestadores}</td><td class="num">${p.usuarios}</td><td>${p.api ? 'Sim' : 'Não'}</td><td class="num">${brl(p.preco)}</td></tr>`).join('')}
-        </tbody></table>
-        <p style="margin-top:14px">${suporte ? `Para assinar ou mudar de plano, escreva para <a href="mailto:${h(suporte)}?subject=${encodeURIComponent('Assinatura — ' + conta.nome)}">${h(suporte)}</a>.` : 'Para assinar ou mudar de plano, fale com o suporte.'}</p>
-      </section>
+      <div>
+        <section class="bloco"><h2>Plano ${h(conta.nomePlano)}</h2>
+          <p class="sub" style="margin-bottom:14px">${h(situacao)}</p>
+          ${assinatura.status === 'atrasada' ? '<div class="mensagem erro" style="margin-bottom:14px"><b>Fatura em aberto.</b>Pague a fatura abaixo para evitar a suspensão da emissão.</div>' : ''}
+          <div style="overflow-x:auto"><table class="tabela"><thead><tr><th>Plano</th><th class="num">Notas/mês</th><th class="num">Empresas</th><th class="num">Usuários</th><th>API</th><th class="num">Mensal</th><th></th></tr></thead><tbody>
+            ${planos.map((p) => `<tr${p.id === planoAtual ? ' style="background:var(--carimbo-claro)"' : ''}><td><strong>${h(p.nome)}</strong></td>
+              <td class="num">${p.notasMes.toLocaleString('pt-BR')}</td><td class="num">${p.prestadores}</td><td class="num">${p.usuarios}</td><td>${p.api ? 'Sim' : 'Não'}</td>
+              <td class="num">${brl(p.preco)}</td><td class="acoes">${botaoPlano(p)}</td></tr>`).join('')}
+          </tbody></table></div>
+          ${!ehDono ? '<p class="sub" style="margin-top:12px">Só o dono da conta pode assinar ou mudar de plano.</p>' : ''}
+          ${ehDono && !assinatura.disponivel ? `<p style="margin-top:14px">Para assinar, escreva para ${estado.info.suporte ? `<a href="mailto:${h(estado.info.suporte)}">${h(estado.info.suporte)}</a>` : 'o suporte'}.</p>` : ''}
+          ${ehDono && assinatura.disponivel ? '<p class="sub" style="margin-top:12px">Pagamento mensal por Pix, boleto ou cartão, processado pelo Asaas. Ao trocar de plano, o novo valor vale para a fatura em aberto e as próximas.</p>' : ''}
+        </section>
+        ${ehDono && assinatura.faturas.length ? `<section class="bloco"><h2>Faturas</h2><table class="tabela"><thead><tr><th>Vencimento</th><th class="num">Valor</th><th>Situação</th><th></th></tr></thead><tbody>
+          ${assinatura.faturas.map((f) => { const [cls, txt] = STATUS_FATURA[f.status] || ['selo-neutro', f.status]; return `<tr><td>${data(f.vencimento)}</td><td class="num">${brl(f.valor)}</td><td><span class="selo ${cls}">${h(txt)}</span></td>
+            <td class="acoes">${f.url ? `<a class="btn btn-${['PENDING', 'OVERDUE'].includes(f.status) ? 'primario' : 'texto'} btn-pequeno" href="${h(f.url)}" target="_blank" rel="noopener">${['PENDING', 'OVERDUE'].includes(f.status) ? 'Pagar' : 'Ver recibo'}</a>` : ''}</td></tr>`; }).join('')}
+          </tbody></table>
+          ${viva ? '<button class="btn btn-texto btn-pequeno" style="margin-top:12px" data-acao="cancelar-assinatura">Cancelar assinatura</button>' : ''}</section>` : ''}
+      </div>
       <div>
         ${pode('conta') ? `<form class="bloco" id="form-conta"><h2>Dados da conta</h2>
           <label class="campo"><span>Nome da empresa ou escritório</span><input name="nome" value="${h(conta.nome)}" required></label>
-          <label class="campo" style="margin-top:12px"><span>CNPJ para faturamento <small>opcional</small></span><input name="documento" value="${h(conta.documento || '')}"></label>
+          <label class="campo" style="margin-top:12px"><span>CNPJ ou CPF para faturamento</span><input name="documento" value="${h(conta.documento || '')}"><small>Obrigatório para assinar. É o documento que aparece no boleto e na nota da assinatura.</small></label>
           <button class="btn btn-primario" style="margin-top:14px">Salvar</button></form>` : ''}
         <form class="bloco" id="form-senha"><h2>Trocar minha senha</h2>
           <label class="campo"><span>Senha atual</span><input name="atual" type="password" autocomplete="current-password" required></label>
@@ -669,7 +705,8 @@ const DESCRICAO_ACAO = {
   'equipe.convidar': 'Convidou pessoa', 'equipe.aceitar_convite': 'Entrou na equipe', 'equipe.alterar_papel': 'Alterou perfil de acesso',
   'equipe.remover': 'Removeu pessoa', 'api.criar_chave': 'Criou chave de API', 'api.revogar_chave': 'Revogou chave de API',
   'webhook.criar': 'Criou aviso automático', 'conta.criar': 'Criou a conta', 'conta.atualizar': 'Alterou dados da conta',
-  'municipio.salvar': 'Configurou prefeitura', 'usuario.trocar_senha': 'Trocou a senha', 'admin.alterar_conta': 'Plataforma alterou o plano',
+  'municipio.salvar': 'Configurou prefeitura', 'cobranca.assinar': 'Assinou um plano', 'cobranca.trocar_plano': 'Trocou de plano',
+  'cobranca.cancelar': 'Cancelou a assinatura', 'usuario.trocar_senha': 'Trocou a senha', 'admin.alterar_conta': 'Plataforma alterou o plano',
 };
 
 // ------------------------------------------------------------------ administração
@@ -688,7 +725,7 @@ async function telaAdmin(alvo) {
     <div class="tabela-wrap"><table class="tabela"><thead><tr><th>Conta</th><th>Plano</th><th>Situação</th><th>Teste até</th><th class="num">Empresas</th><th class="num">Notas no mês</th><th>Criada</th></tr></thead><tbody>
       ${contas.map((c) => `<tr><td><strong>${h(c.nome)}</strong><span class="sub">${h(c.dono || '')}</span></td>
         <td><select data-acao-change="admin-plano" data-id="${c.id}" aria-label="Plano de ${h(c.nome)}">${planos.map((p) => `<option value="${p.id}"${p.id === c.plano ? ' selected' : ''}>${h(p.nome)}</option>`).join('')}</select></td>
-        <td><select data-acao-change="admin-status" data-id="${c.id}" aria-label="Situação de ${h(c.nome)}">${['ativa', 'suspensa', 'cancelada'].map((s) => `<option${s === c.status ? ' selected' : ''}>${s}</option>`).join('')}</select></td>
+        <td><select data-acao-change="admin-status" data-id="${c.id}" aria-label="Situação de ${h(c.nome)}">${['ativa', 'suspensa', 'cancelada'].map((s) => `<option${s === c.status ? ' selected' : ''}>${s}</option>`).join('')}</select><span class="sub">${h(STATUS_ASSINATURA[c.assinatura_status] || '')}</span></td>
         <td><input type="date" value="${c.teste_ate ? c.teste_ate.slice(0, 10) : ''}" data-acao-change="admin-teste" data-id="${c.id}" aria-label="Fim do teste de ${h(c.nome)}"></td>
         <td class="num">${c.prestadores}</td><td class="num">${c.notas_mes}</td><td>${data(c.criado_em)}</td></tr>`).join('')}
     </tbody></table></div>`;
@@ -797,6 +834,21 @@ const ACOES = {
     await api(`/chaves/${el.dataset.id}`, { metodo: 'DELETE' }); navegar();
   },
   'remover-webhook': async (el) => { await api(`/webhooks/${el.dataset.id}`, { metodo: 'DELETE' }); navegar(); },
+  assinar: async (el) => {
+    const p = estado.info.planos.find((x) => x.id === el.dataset.plano);
+    if (!confirmar(`Assinar o plano ${p.nome} por ${brl(p.preco)} por mês?`)) return;
+    el.disabled = true;
+    try {
+      const r = await api('/assinatura', { metodo: 'POST', corpo: { plano: p.id } });
+      if (r.urlPagamento) { toast('Abrindo a fatura para pagamento…'); location.assign(r.urlPagamento); return; }
+      toast(`Plano alterado para ${p.nome}.`);
+      await carregarSessao(); navegar();
+    } catch (e) { toast(e.message, 'erro'); el.disabled = false; }
+  },
+  'cancelar-assinatura': async () => {
+    if (!confirmar('Cancelar a assinatura? Você continua com o plano até o fim do período já pago; depois a emissão em produção é bloqueada.')) return;
+    try { await api('/assinatura', { metodo: 'DELETE' }); toast('Assinatura cancelada.'); await carregarSessao(); navegar(); } catch (e) { toast(e.message, 'erro'); }
+  },
   'copiar-segredo': async () => {
     try { await navigator.clipboard.writeText($('#dlg-segredo [data-segredo]').textContent); toast('Copiado.'); } catch { toast('Selecione e copie manualmente.', 'erro'); }
   },

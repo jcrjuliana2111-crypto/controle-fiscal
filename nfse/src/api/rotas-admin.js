@@ -28,6 +28,7 @@ r.put('/contas/:id', h(async (req, res) => {
   if (plano && !PLANOS[plano]) throw invalido('Plano inválido.');
   if (status && !['ativa', 'suspensa', 'cancelada'].includes(status)) throw invalido('Status inválido.');
   const c = await um(`UPDATE contas SET plano = coalesce($2, plano), status = coalesce($3, status), teste_ate = coalesce($4::timestamptz, teste_ate),
+    motivo_suspensao = CASE WHEN $3 = 'suspensa' THEN 'manual' WHEN $3 = 'ativa' THEN NULL ELSE motivo_suspensao END,
     atualizado_em = now() WHERE id = $1 RETURNING *`, [req.params.id, plano || null, status || null, testeAte || null]);
   if (!c) throw naoEncontrado('Conta');
   await auditar({ ...req.quem, contaId: c.id }, 'admin.alterar_conta', c.id, { plano, status, testeAte });

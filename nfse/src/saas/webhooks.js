@@ -65,7 +65,7 @@ export async function processarFila() {
         await exigirEnderecoPublico(e.url); // o DNS pode ter mudado desde o cadastro
         const r = await fetch(e.url, {
           method: 'POST', body: corpo, signal: AbortSignal.timeout(10_000),
-          headers: { 'Content-Type': 'application/json', 'User-Agent': 'EmissorNFSe-Webhook/1.0', 'X-Assinatura': assinar(e.segredo, corpo), 'X-Evento': e.evento },
+          headers: { 'Content-Type': 'application/json', 'User-Agent': 'EmitAI-Webhook/1.0', 'X-Assinatura': assinar(e.segredo, corpo), 'X-Evento': e.evento },
         });
         status = r.status;
         if (!r.ok) erro = `HTTP ${r.status}`;
