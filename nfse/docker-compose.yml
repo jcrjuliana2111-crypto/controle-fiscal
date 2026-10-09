@@ -1,5 +1,6 @@
 # Sobe o sistema completo: aplicação + PostgreSQL.
 # Uso: cp .env.example .env  (preencha)  &&  docker compose up -d
+# Teste rápido no computador: dê dois cliques em TESTAR.bat (Windows) ou rode ./testar.sh (Mac/Linux).
 services:
   app:
     build: .
@@ -7,6 +8,7 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgres://nfse:${POSTGRES_PASSWORD}@db:5432/nfse
+      HOST: 0.0.0.0
     ports:
       - "127.0.0.1:3333:3333"   # exponha via proxy com HTTPS (Caddy/nginx)
     depends_on:
