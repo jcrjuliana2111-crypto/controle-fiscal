@@ -67,16 +67,29 @@ test('conciliar respeita a janela de dias', () => {
   assert.strictEqual(r.pares.length, 0);
 });
 
+test('dadosComprovante lê valores e datas do texto e do nome do arquivo', () => {
+  const t = 'Comprovante de Pix\nValor R$ 1.320,40\nData 02/10/2026 14:31\nTarifa R$ 0,00\nFavorecido ENEL DISTRIBUICAO';
+  const d = C.dadosComprovante(t, 'pix.pdf');
+  assert.deepStrictEqual(d.valores.sort((a, b) => a - b), [132040]);
+  assert.deepStrictEqual(d.datas, ['2026-10-02']);
+  const n = C.dadosComprovante('', '2026-10-05_aluguel_2500.00.png');
+  assert.deepStrictEqual(n.valores, [250000]);
+  assert.deepStrictEqual(n.datas, ['2026-10-05']);
+  assert.deepStrictEqual(C.dadosComprovante('', 'ENEL 05-10-2026 320,40.jpg').datas, ['2026-10-05']);
+});
+
 test('casarComprovantes liga por valor, data e nome', () => {
   const pares = [
     { movimento: { id: 'm1', data: '2026-10-01', valor: -500, historico: 'PIX ENVIADO' }, parcela: { nome: 'Alfa Ltda' } },
     { movimento: { id: 'm2', data: '2026-10-01', valor: -500, historico: 'PIX ENVIADO' }, parcela: { nome: 'Beta SA' } },
-    { movimento: { id: 'm3', data: '2026-10-05', valor: 80, historico: 'TED' }, parcela: { nome: 'Gama' } }
+    { movimento: { id: 'm3', data: '2026-10-05', valor: 80, historico: 'TED' }, parcela: { nome: 'Gama' } },
+    { movimento: { id: 'm4', data: '2026-10-06', valor: -42.5, historico: 'BOLETO' }, parcela: { nome: 'Delta' } }
   ];
   const comps = [
-    { id: 'c1', valor: 500, data: '2026-10-01', nome: 'BETA SA' },
-    { id: 'c2', valor: 500, data: '2026-10-02', nome: 'ALFA LTDA' },
-    { id: 'c3', valor: 80, data: '2026-10-20', nome: 'Gama' } // fora da janela
+    { id: 'c1', valores: [50000, 0], datas: ['2026-10-01'], texto: 'BETA SA' },
+    { id: 'c2', valores: [50000], datas: ['2026-10-02'], texto: 'ALFA LTDA' },
+    { id: 'c3', valores: [8000], datas: ['2026-10-20'], texto: 'Gama' }, // fora da janela
+    { id: 'c4', valores: [4250], datas: [], texto: 'boleto delta' }      // sem data: só valor
   ];
-  assert.deepStrictEqual(C.casarComprovantes(pares, comps, { janelaDias: 3 }), { m1: 'c2', m2: 'c1' });
+  assert.deepStrictEqual(C.casarComprovantes(pares, comps, { janelaDias: 3 }), { m1: 'c2', m2: 'c1', m4: 'c4' });
 });

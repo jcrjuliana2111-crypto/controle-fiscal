@@ -178,19 +178,48 @@
     };
   }
 
-  // Liga comprovantes (já lidos: {id, valor, data, nome}) às sugestões de baixa.
-  // Exige o mesmo valor e data até `janelaDias` do movimento; desempata pela
-  // data mais próxima e pelo nome. Retorna { idMovimento: idComprovante }.
+  // Extrai valores e datas de um comprovante sem IA: usa o texto do PDF
+  // (quando houver) e o nome do arquivo, ex. "2026-10-02 ENEL 320,40.pdf".
+  function dadosComprovante(texto, nomeArquivo) {
+    const nome = String(nomeArquivo || '').replace(/\.[a-z0-9]+$/i, '');
+    const fontes = [String(texto || ''), nome];
+    const valores = new Set(), datas = new Set();
+    for (const f of fontes) {
+      for (const m of f.matchAll(/(\d{1,3}(?:\.\d{3})+,\d{2}|\d+,\d{2})(?!\d)/g)) valores.add(Math.round(parseValorBR(m[1]) * 100));
+      for (const m of f.matchAll(/(?<![\d/.-])(\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{2})(?![\d/])/g)) {
+        const d = parseData(`${m[1]}/${m[2]}/${m[3]}`); if (valido(d)) datas.add(d);
+      }
+      for (const m of f.matchAll(/(?<!\d)(20\d{2})[-_.]?(\d{2})[-_.]?(\d{2})(?!\d)/g)) {
+        const d = `${m[1]}-${m[2]}-${m[3]}`; if (valido(d)) datas.add(d);
+      }
+    }
+    // no nome do arquivo aceita também ponto decimal: "ENEL 320.40.pdf"
+    for (const m of nome.matchAll(/(?<![\d.])(\d+)[.](\d{2})(?![\d.])/g)) valores.add(Number(m[1]) * 100 + Number(m[2]));
+    return { valores: [...valores].filter(v => v > 0), datas: [...datas], texto: fontes.join(' ') };
+  }
+  function valido(d) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+    return !!m && +m[2] >= 1 && +m[2] <= 12 && +m[3] >= 1 && +m[3] <= 31 && +m[1] >= 2000;
+  }
+
+  // Liga comprovantes ({id, valores:[centavos], datas:[YYYY-MM-DD], texto}) às
+  // sugestões de baixa. Exige o valor do movimento entre os valores do
+  // comprovante e, se o comprovante tiver datas, uma delas até `janelaDias`.
+  // Desempata pelo nome do contato no texto e pela data mais próxima.
+  // Retorna { idMovimento: idComprovante }.
   function casarComprovantes(pares, comprovantes, opts) {
     const janela = (opts && opts.janelaDias) != null ? opts.janelaDias : 3;
     const cand = [];
     for (const par of pares) {
       const cents = Math.round(Math.abs(par.movimento.valor) * 100);
       for (const c of comprovantes) {
-        if (!c.data || Math.round(Math.abs(c.valor) * 100) !== cents) continue;
-        const dias = diasEntre(par.movimento.data, c.data);
-        if (dias > janela) continue;
-        const nome = Math.max(similaridadeNome(c.nome, par.parcela.nome), similaridadeNome(par.movimento.historico, c.nome));
+        if (!c.valores.includes(cents)) continue;
+        let dias = janela; // sem data no comprovante: aceita, mas com nota menor
+        if (c.datas.length) {
+          dias = Math.min(...c.datas.map(d => diasEntre(par.movimento.data, d)));
+          if (dias > janela) continue;
+        }
+        const nome = similaridadeNome(c.texto, par.parcela.nome);
         cand.push({ m: par.movimento.id, c: c.id, score: 10 * nome - dias });
       }
     }
@@ -203,7 +232,7 @@
     return out;
   }
 
-  const api = { parseValorBR, parseData, parseOFX, parseCSV, parseExtrato, similaridadeNome, conciliar, casarComprovantes };
+  const api = { parseValorBR, parseData, parseOFX, parseCSV, parseExtrato, similaridadeNome, conciliar, dadosComprovante, casarComprovantes };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Conciliacao = api;
 })(this);

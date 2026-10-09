@@ -30,19 +30,30 @@ mesmo extrato de novo, ele é ignorado (não há baixa dupla).
 
 ## Comprovantes de pagamento
 
-Junto com o extrato você pode enviar os comprovantes (PDF, JPG, PNG). O robô:
+Aponte a pasta onde você salva os comprovantes (botão **Escolher pasta**). Nada
+passa por IA — a leitura é feita no seu navegador:
 
-1. Lê cada comprovante com IA (valor, data e favorecido/pagador), usando o
-   proxy `smart-handler` que o app já usa para ler notificações.
-2. Liga o comprovante ao movimento do extrato de **mesmo valor** e data até
-   3 dias de diferença (desempata pelo nome). Dá para anexar ou remover à mão
+1. **PDFs**: o robô lê o texto do arquivo e procura valores (`320,40`,
+   `1.500,00`) e datas (`02/10/2026`).
+2. **Imagens (JPG/PNG)**: não dá para ler o conteúdo sem IA/OCR, então o robô
+   usa o **nome do arquivo**. Ex.: `2026-10-02 ENEL 320,40.jpg` ou
+   `ENEL 02-10-2026 320.40.png`. O nome dos PDFs também é aproveitado.
+   PDF escaneado (só imagem, sem texto) cai no mesmo caso: precisa do valor no nome.
+3. O comprovante é ligado ao movimento cujo **valor** aparece nele e cuja data
+   está até 3 dias de uma data do comprovante (sem data, vale só o valor).
+   Empates são decididos pelo nome do contato. Dá para anexar ou remover à mão
    na coluna *Comprovante*.
-3. Na baixa, consulta a parcela no Conta Azul e **só anexa se ela ainda não
+4. Na baixa, consulta a parcela no Conta Azul e **só anexa se ela ainda não
    tiver anexo**. A coluna *Resultado* mostra: *já tinha anexo*, *comprovante
    anexado*, *link do comprovante na observação* ou *sem comprovante*.
 
-Os arquivos ficam no bucket `comprovantes` do Supabase (link com caminho
-aleatório).
+Subpastas também são lidas. No **Chrome/Edge** o navegador lembra a pasta: nas
+próximas vezes basta clicar em *Rodar conciliação* (ele pode pedir para
+confirmar o acesso) e os arquivos novos são lidos na hora. No Firefox/Safari é
+preciso escolher a pasta a cada vez.
+
+Só os comprovantes das baixas feitas são enviados — para o bucket
+`comprovantes` do Supabase (link com caminho aleatório).
 
 **Sobre o anexo nativo do Conta Azul:** a API v2 mostra os anexos de parcelas
 e baixas, mas não achamos na documentação pública uma rota para *enviar*
