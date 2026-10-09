@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Robô de Conciliação</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a; --border: #2e3450;
+    --accent: #4f7cff; --accent2: #00d4aa; --warn: #ffb84f; --danger: #ff5f5f; --success: #4fcf8a;
+    --text: #e8ecf4; --text2: #8892aa; --text3: #4d566e;
+    --font: 'IBM Plex Sans', sans-serif; --mono: 'IBM Plex Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px;
+    display: flex; align-items: center; gap: 20px; height: 64px; position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; font-family: var(--mono); font-size: 14px; font-weight: 600; letter-spacing: .04em; }
+  .logo-icon { width: 32px; height: 32px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .header-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  main { padding: 28px 32px; max-width: 1600px; margin: 0 auto; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+  .card h2 { font-size: 13px; font-family: var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--text2); margin-bottom: 14px; }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+  label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text2); }
+  input, select {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 8px;
+    padding: 9px 12px; font-size: 13px; font-family: var(--font); outline: none; min-width: 160px;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all .2s; font-family: var(--font); text-decoration: none; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: #3a6aff; }
+  .btn-success { background: var(--success); color: #0f1117; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text2); }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  .pill { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: 11px; font-family: var(--mono); font-weight: 600; }
+  .pill.ok, .pill.alta { background: rgba(79,207,138,.15); color: var(--success); }
+  .pill.media { background: rgba(255,184,79,.15); color: var(--warn); }
+  .pill.baixa, .pill.erro, .pill.off { background: rgba(255,95,95,.15); color: var(--danger); }
+  .pill.ignorado { background: var(--surface2); color: var(--text2); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 20px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .stat-label { font-size: 11px; font-family: var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--text2); margin-bottom: 6px; }
+  .stat-value { font-size: 24px; font-weight: 700; font-family: var(--mono); }
+  .tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .tab { padding: 8px 14px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); color: var(--text2); cursor: pointer; font-size: 13px; }
+  .tab.active { border-color: var(--accent); color: var(--text); }
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 12px; font-size: 11px; font-family: var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--text2); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 11px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .mono { font-family: var(--mono); white-space: nowrap; }
+  .pos { color: var(--success); } .neg { color: var(--danger); }
+  .muted { color: var(--text2); font-size: 12px; }
+  .msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-top: 12px; display: none; }
+  .msg.show { display: block; }
+  .msg.info { background: rgba(79,124,255,.12); color: var(--accent); }
+  .msg.erro { background: rgba(255,95,95,.12); color: var(--danger); }
+  .msg.ok { background: rgba(79,207,138,.12); color: var(--success); }
+  .empty { padding: 30px; text-align: center; color: var(--text2); }
+  @media (max-width: 700px) {
+    header { padding: 0 16px; } main { padding: 16px; }
+    .row > * { flex: 1 1 100%; } input, select { min-width: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="logo-icon">🤖</div>FISCAL.CTRL</div>
+  <span style="color:var(--text3);font-size:12px;font-family:var(--mono)">// robô de conciliação conta azul</span>
+  <div class="header-right">
+    <a class="btn btn-outline" href="index.html">← Notificações</a>
+  </div>
+</header>
+
+<main>
+  <!-- 1. CONEXÃO -->
+  <div class="card">
+    <h2>1 · Conexão</h2>
+    <div class="row">
+      <label>Chave do robô
+        <input type="password" id="roboKey" placeholder="ROBO_KEY definida no Supabase" onchange="salvarConfig()">
+      </label>
+      <button class="btn btn-outline" onclick="verificarStatus()">Verificar</button>
+      <span id="statusCA" class="pill off">não verificado</span>
+      <button class="btn btn-primary" id="btnConectar" onclick="conectar()">Conectar Conta Azul</button>
+    </div>
+    <div id="msgConexao" class="msg"></div>
+  </div>
+
+  <!-- 2. EXTRATO -->
+  <div class="card">
+    <h2>2 · Extrato bancário</h2>
+    <div class="row">
+      <label>Conta financeira no Conta Azul
+        <select id="contaFin"><option value="">— conecte primeiro —</option></select>
+      </label>
+      <label>Forma de pagamento da baixa
+        <select id="metodo">
+          <option value="TRANSFERENCIA_BANCARIA">Transferência</option>
+          <option value="PIX_PAGAMENTO_INSTANTANEO">PIX</option>
+          <option value="BOLETO_BANCARIO">Boleto</option>
+          <option value="DEBITO_AUTOMATICO">Débito automático</option>
+          <option value="CARTAO_CREDITO">Cartão de crédito</option>
+          <option value="DINHEIRO">Dinheiro</option>
+          <option value="OUTRO">Outro</option>
+        </select>
+      </label>
+      <label>Tolerância de data (dias)
+        <input type="number" id="janela" value="5" min="0" max="60" style="min-width:90px;width:90px">
+      </label>
+      <label>Arquivo OFX ou CSV
+        <input type="file" id="arquivo" accept=".ofx,.csv,.txt">
+      </label>
+      <button class="btn btn-primary" id="btnRodar" onclick="rodar()">▶ Rodar conciliação</button>
+    </div>
+    <p class="muted" style="margin-top:10px">CSV: precisa das colunas <b>Data</b> e <b>Valor</b> (ou <b>Crédito</b>/<b>Débito</b>) e, de preferência, <b>Histórico</b>. Entradas casam com contas a receber; saídas com contas a pagar.</p>
+    <div id="msgRodar" class="msg"></div>
+  </div>
+
+  <!-- 3. RESULTADO -->
+  <div id="resultado" style="display:none">
+    <div class="stats" id="stats"></div>
+    <div class="tabs">
+      <div class="tab active" data-tab="pares" onclick="trocarAba('pares')">Sugestões de baixa</div>
+      <div class="tab" data-tab="semParcela" onclick="trocarAba('semParcela')">Extrato sem lançamento</div>
+      <div class="tab" data-tab="semMov" onclick="trocarAba('semMov')">Lançamentos sem extrato</div>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn btn-outline" onclick="exportarCSV()">↓ Exportar CSV</button>
+        <button class="btn btn-success" id="btnBaixar" onclick="darBaixa()">✓ Dar baixa nos selecionados</button>
+      </div>
+    </div>
+    <div class="table-wrap" id="tabela"></div>
+  </div>
+</main>
+
+<script src="conciliacao-core.js"></script>
+<script>
+const FN_URL = 'https://qftusjwnlyjokilcjuzb.supabase.co/functions/v1/conta-azul';
+
+let movimentos = [], resultado = null, jaConciliados = new Set(), aba = 'pares';
+const selecionados = new Set();   // ids de movimentos marcados
+const retornos = {};              // fitid -> {status, erro}
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const brl = v => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtData = s => s ? s.split('-').reverse().join('/') : '';
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} }
+};
+
+function msg(id, tipo, texto) { const el = $(id); el.className = `msg show ${tipo}`; el.innerHTML = texto; }
+
+async function api(action, body) {
+  const r = await fetch(FN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-action': action, 'x-robo-key': $('roboKey').value },
+    body: JSON.stringify(body || {})
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.erro || `HTTP ${r.status}`);
+  return data;
+}
+
+function salvarConfig() {
+  store.set('robo_key', $('roboKey').value);
+  store.set('robo_conta', $('contaFin').value);
+  store.set('robo_metodo', $('metodo').value);
+}
+
+async function verificarStatus() {
+  try {
+    const s = await api('status');
+    $('statusCA').className = `pill ${s.conectado ? 'ok' : 'off'}`;
+    $('statusCA').textContent = s.conectado ? 'conectado' : 'desconectado';
+    $('btnConectar').textContent = s.conectado ? 'Reconectar' : 'Conectar Conta Azul';
+    if (s.conectado) await carregarContas();
+  } catch (e) {
+    $('statusCA').className = 'pill off'; $('statusCA').textContent = 'erro';
+    msg('msgConexao', 'erro', esc(e.message));
+  }
+}
+
+async function conectar() {
+  salvarConfig();
+  try { location.href = (await api('auth-url')).url; }
+  catch (e) { msg('msgConexao', 'erro', esc(e.message)); }
+}
+
+async function carregarContas() {
+  const contas = await api('contas-financeiras');
+  const sel = $('contaFin');
+  sel.innerHTML = '<option value="">— selecione —</option>' +
+    contas.map(c => `<option value="${esc(c.id)}">${esc(c.nome)}${c.banco ? ' · ' + esc(c.banco) : ''}</option>`).join('');
+  const salva = store.get('robo_conta');
+  if (salva && contas.some(c => c.id === salva)) sel.value = salva;
+}
+
+function lerArquivo(f) {
+  return new Promise((ok, erro) => {
+    const r = new FileReader();
+    r.onload = () => {
+      // OFX de bancos brasileiros costuma vir em latin1
+      const buf = new Uint8Array(r.result);
+      let t = new TextDecoder('utf-8').decode(buf);
+      if (t.includes('�')) t = new TextDecoder('iso-8859-1').decode(buf);
+      ok(t);
+    };
+    r.onerror = erro;
+    r.readAsArrayBuffer(f);
+  });
+}
+
+function somarDias(d, n) {
+  const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n);
+  return x.toISOString().slice(0, 10);
+}
+
+async function rodar() {
+  const f = $('arquivo').files[0];
+  const conta = $('contaFin').value;
+  if (!conta) return msg('msgRodar', 'erro', 'Selecione a conta financeira (conecte o Conta Azul antes).');
+  if (!f) return msg('msgRodar', 'erro', 'Escolha o arquivo do extrato.');
+  salvarConfig();
+  $('btnRodar').disabled = true;
+  try {
+    msg('msgRodar', 'info', 'Lendo extrato…');
+    // FITID só é único dentro da conta — prefixa com a conta financeira
+    movimentos = Conciliacao.parseExtrato(f.name, await lerArquivo(f))
+      .map(m => ({ ...m, id: `${conta}:${m.id}` }));
+    if (!movimentos.length) throw new Error('Nenhum movimento encontrado no arquivo.');
+
+    const janela = Number($('janela').value) || 0;
+    const datas = movimentos.map(m => m.data).sort();
+    const de = somarDias(datas[0], -janela), ate = somarDias(datas[datas.length - 1], janela);
+
+    msg('msgRodar', 'info', `${movimentos.length} movimentos. Buscando lançamentos em aberto no Conta Azul (${fmtData(de)} a ${fmtData(ate)})…`);
+    const [parcelas, conciliados] = await Promise.all([
+      api('parcelas', { de, ate }),
+      api('conciliados', { fitids: movimentos.map(m => m.id) })
+    ]);
+    jaConciliados = new Set(conciliados);
+    const pendentes = movimentos.filter(m => !jaConciliados.has(m.id));
+
+    resultado = Conciliacao.conciliar(pendentes, parcelas, { janelaDias: janela });
+    selecionados.clear();
+    for (const k in retornos) delete retornos[k];
+    resultado.pares.filter(p => p.confianca === 'alta').forEach(p => selecionados.add(p.movimento.id));
+
+    msg('msgRodar', 'ok', `Pronto: ${resultado.pares.length} sugestões, ${parcelas.length} lançamentos em aberto analisados` +
+      (jaConciliados.size ? `, ${jaConciliados.size} movimentos já conciliados antes foram ignorados.` : '.'));
+    $('resultado').style.display = '';
+    render();
+  } catch (e) {
+    msg('msgRodar', 'erro', esc(e.message));
+  } finally {
+    $('btnRodar').disabled = false;
+  }
+}
+
+function trocarAba(a) {
+  aba = a;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === a));
+  render();
+}
+
+function valorHtml(v) { return `<span class="mono ${v >= 0 ? 'pos' : 'neg'}">${brl(v)}</span>`; }
+
+function render() {
+  const r = resultado;
+  const feitos = Object.values(retornos).filter(x => x.status === 'ok').length;
+  $('stats').innerHTML = [
+    ['Movimentos', movimentos.length, ''],
+    ['Sugestões', r.pares.length, 'color:var(--accent)'],
+    ['Confiança alta', r.pares.filter(p => p.confianca === 'alta').length, 'color:var(--success)'],
+    ['Sem lançamento', r.semParcela.length, 'color:var(--warn)'],
+    ['Baixas feitas', feitos, 'color:var(--success)']
+  ].map(([l, v, s]) => `<div class="stat"><div class="stat-label">${l}</div><div class="stat-value" style="${s}">${v}</div></div>`).join('');
+
+  $('btnBaixar').style.display = aba === 'pares' ? '' : 'none';
+  let html = '';
+  if (aba === 'pares') {
+    if (!r.pares.length) html = '<div class="empty">Nenhuma sugestão de baixa.</div>';
+    else html = `<table><thead><tr>
+      <th><input type="checkbox" onchange="marcarTodos(this.checked)"></th>
+      <th>Data banco</th><th>Histórico do extrato</th><th>Valor</th>
+      <th>Lançamento Conta Azul</th><th>Vencimento</th><th>Confiança</th><th>Resultado</th></tr></thead><tbody>` +
+      r.pares.map(p => {
+        const ret = retornos[p.movimento.id];
+        const travado = ret && ret.status === 'ok';
+        return `<tr>
+          <td><input type="checkbox" ${selecionados.has(p.movimento.id) ? 'checked' : ''} ${travado ? 'disabled' : ''}
+               onchange="marcar('${esc(p.movimento.id)}', this.checked)"></td>
+          <td class="mono">${fmtData(p.movimento.data)}</td>
+          <td>${esc(p.movimento.historico)}</td>
+          <td>${valorHtml(p.movimento.valor)}</td>
+          <td>${esc(p.parcela.nome || '—')}<div class="muted">${p.parcela.tipo === 'receber' ? 'A receber' : 'A pagar'} · ${esc(p.parcela.descricao)}</div></td>
+          <td class="mono">${fmtData(p.parcela.vencimento)}<div class="muted">${p.dias} dia(s)</div></td>
+          <td><span class="pill ${p.confianca}">${p.confianca}</span></td>
+          <td>${ret ? `<span class="pill ${ret.status}">${ret.status}</span>${ret.erro ? `<div class="muted">${esc(ret.erro)}</div>` : ''}` : ''}</td>
+        </tr>`;
+      }).join('') + '</tbody></table>';
+  } else if (aba === 'semParcela') {
+    html = !r.semParcela.length ? '<div class="empty">Todos os movimentos têm sugestão.</div>' :
+      `<table><thead><tr><th>Data</th><th>Histórico</th><th>Valor</th></tr></thead><tbody>` +
+      r.semParcela.map(m => `<tr><td class="mono">${fmtData(m.data)}</td><td>${esc(m.historico)}</td><td>${valorHtml(m.valor)}</td></tr>`).join('') +
+      '</tbody></table>';
+  } else {
+    html = !r.parcelasSemMovimento.length ? '<div class="empty">Nenhum lançamento em aberto sobrando no período.</div>' :
+      `<table><thead><tr><th>Vencimento</th><th>Tipo</th><th>Contato</th><th>Descrição</th><th>Valor</th></tr></thead><tbody>` +
+      r.parcelasSemMovimento.map(p => `<tr><td class="mono">${fmtData(p.vencimento)}</td><td>${p.tipo === 'receber' ? 'A receber' : 'A pagar'}</td>
+        <td>${esc(p.nome)}</td><td>${esc(p.descricao)}</td><td>${valorHtml(p.tipo === 'receber' ? p.valor : -p.valor)}</td></tr>`).join('') +
+      '</tbody></table>';
+  }
+  $('tabela').innerHTML = html;
+}
+
+function marcar(id, on) { on ? selecionados.add(id) : selecionados.delete(id); }
+function marcarTodos(on) {
+  resultado.pares.forEach(p => {
+    if (retornos[p.movimento.id]?.status === 'ok') return;
+    on ? selecionados.add(p.movimento.id) : selecionados.delete(p.movimento.id);
+  });
+  render();
+}
+
+async function darBaixa() {
+  const conta = $('contaFin').value;
+  const lote = resultado.pares.filter(p => selecionados.has(p.movimento.id) && retornos[p.movimento.id]?.status !== 'ok');
+  if (!lote.length) return alert('Nenhuma sugestão selecionada.');
+  const total = lote.reduce((s, p) => s + Math.abs(p.movimento.valor), 0);
+  if (!confirm(`Dar baixa em ${lote.length} lançamento(s) no Conta Azul, total ${brl(total)}?\n\nIsso altera dados reais.`)) return;
+
+  $('btnBaixar').disabled = true;
+  try {
+    // lotes de 20 para não estourar o tempo da Edge Function
+    for (let i = 0; i < lote.length; i += 20) {
+      const parte = lote.slice(i, i + 20).map(p => ({
+        fitid: p.movimento.id, parcela_id: p.parcela.id, tipo: p.parcela.tipo,
+        data: p.movimento.data, valor: Math.abs(p.movimento.valor),
+        conta_financeira: conta, metodo_pagamento: $('metodo').value, historico: p.movimento.historico
+      }));
+      msg('msgRodar', 'info', `Dando baixa… ${i + parte.length}/${lote.length}`);
+      for (const res of await api('baixar', { baixas: parte })) {
+        retornos[res.fitid] = res;
+        if (res.status === 'ok') selecionados.delete(res.fitid);
+      }
+      render();
+    }
+    const vals = Object.values(retornos);
+    const erros = vals.filter(x => x.status === 'erro').length;
+    msg('msgRodar', erros ? 'erro' : 'ok', `${vals.filter(x => x.status === 'ok').length} baixa(s) registradas` + (erros ? `, ${erros} com erro (veja a coluna Resultado).` : '.'));
+  } catch (e) {
+    msg('msgRodar', 'erro', esc(e.message));
+  } finally {
+    $('btnBaixar').disabled = false;
+  }
+}
+
+function exportarCSV() {
+  const linhas = [['situacao', 'data', 'historico', 'valor', 'lancamento', 'tipo', 'vencimento', 'confianca', 'resultado']];
+  resultado.pares.forEach(p => linhas.push(['sugestao', p.movimento.data, p.movimento.historico, p.movimento.valor,
+    p.parcela.nome, p.parcela.tipo, p.parcela.vencimento, p.confianca, retornos[p.movimento.id]?.status || '']));
+  resultado.semParcela.forEach(m => linhas.push(['extrato_sem_lancamento', m.data, m.historico, m.valor, '', '', '', '', '']));
+  resultado.parcelasSemMovimento.forEach(p => linhas.push(['lancamento_sem_extrato', '', p.descricao, p.valor, p.nome, p.tipo, p.vencimento, '', '']));
+  const csv = linhas.map(l => l.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `conciliacao_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+}
+
+// init
+$('roboKey').value = store.get('robo_key') || '';
+if (store.get('robo_metodo')) $('metodo').value = store.get('robo_metodo');
+$('contaFin').addEventListener('change', salvarConfig);
+$('metodo').addEventListener('change', salvarConfig);
+if (new URLSearchParams(location.search).has('conectado')) {
+  msg('msgConexao', 'ok', 'Conta Azul conectado com sucesso.');
+  history.replaceState(null, '', location.pathname);
+}
+if ($('roboKey').value) verificarStatus();
+</script>
+</body>
+</html>
