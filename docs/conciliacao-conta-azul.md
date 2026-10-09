@@ -39,10 +39,20 @@ passa por IA — a leitura é feita no seu navegador:
    usa o **nome do arquivo**. Ex.: `2026-10-02 ENEL 320,40.jpg` ou
    `ENEL 02-10-2026 320.40.png`. O nome dos PDFs também é aproveitado.
    PDF escaneado (só imagem, sem texto) cai no mesmo caso: precisa do valor no nome.
-3. O comprovante é ligado ao movimento cujo **valor** aparece nele e cuja data
-   está até 3 dias de uma data do comprovante (sem data, vale só o valor).
-   Empates são decididos pelo nome do contato. Dá para anexar ou remover à mão
-   na coluna *Comprovante*.
+3. Formatos reconhecidos (no texto do PDF ou no nome do arquivo):
+
+   | Tipo | Exemplo | Como o robô usa |
+   |---|---|---|
+   | PIX | `FAVORECIDO: ALANA GONCALVES RODRIGUES` · `VALOR R$ 490,00` · `TIPO: PIX ENVIADO` · `FOLHA MULTI AGO 26` | valor + nome do favorecido + descrição igual à do Conta Azul |
+   | Fornecedor | `FORNECEDOR: F F DISTRIBUIDORA DE PRODUTOS` · `VALOR: R$ 964,62` · `VENCIMENTO: V 051026` | valor + nome + vencimento (`V ddmmaa` = 05/10/2026) comparado com o vencimento da parcela |
+
+   Regras: o **valor** tem que aparecer no comprovante; se houver `V ddmmaa`,
+   ele precisa bater com o vencimento do lançamento (±3 dias); se houver data
+   de pagamento, ela precisa estar a ±3 dias da data no banco. Entre opções de
+   mesmo valor (ex.: várias folhas de R$ 490,00), ganha a que tem o nome e a
+   descrição batendo. Um comprovante sem data e sem nome/descrição reconhecível
+   só é ligado se for a única opção com aquele valor. Dá para anexar ou remover
+   à mão na coluna *Comprovante*.
 4. Na baixa, consulta a parcela no Conta Azul e **só anexa se ela ainda não
    tiver anexo**. A coluna *Resultado* mostra: *já tinha anexo*, *comprovante
    anexado*, *link do comprovante na observação* ou *sem comprovante*.

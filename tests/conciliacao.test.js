@@ -93,3 +93,35 @@ test('casarComprovantes liga por valor, data e nome', () => {
   ];
   assert.deepStrictEqual(C.casarComprovantes(pares, comps, { janelaDias: 3 }), { m1: 'c2', m2: 'c1', m4: 'c4' });
 });
+
+test('formatos do escritório: PIX com descrição e fornecedor com V ddmmaa', () => {
+  const pix = C.dadosComprovante('FAVORECIDO: ALANA GONCALVES RODRIGUES\nVALOR R$ 490,00\nTIPO: PIX ENVIADO -\nFOLHA MULTI AGO 26', 'a.pdf');
+  assert.deepStrictEqual(pix.valores, [49000]);
+  assert.deepStrictEqual(pix.datas, []);
+  const forn = C.dadosComprovante('', 'FORNECEDOR F F DISTRIBUIDORA DE PRODUTOS R$ 964,62 V 051026.pdf');
+  assert.deepStrictEqual(forn.valores, [96462]);
+  assert.deepStrictEqual(forn.vencimentos, ['2026-10-05']);
+  assert.deepStrictEqual(forn.datas, []);
+  assert.deepStrictEqual(C.dadosComprovante('VENCIMENTO: V051026', '').vencimentos, ['2026-10-05']);
+
+  // duas folhas de R$ 490,00: cada uma vai para a pessoa certa pelo nome/descrição
+  const pares = [
+    { movimento: { id: 'm1', data: '2026-10-06', valor: -490, historico: 'PIX ENVIADO' },
+      parcela: { nome: 'Bruno Lima', descricao: 'FOLHA MULTI AGO 26', vencimento: '2026-10-05' } },
+    { movimento: { id: 'm2', data: '2026-10-06', valor: -490, historico: 'PIX ENVIADO' },
+      parcela: { nome: 'Alana Goncalves Rodrigues', descricao: 'FOLHA MULTI AGO 26', vencimento: '2026-10-05' } },
+    { movimento: { id: 'm3', data: '2026-10-07', valor: -964.62, historico: 'PAG BOLETO' },
+      parcela: { nome: 'F F Distribuidora', descricao: 'Compra mercadoria', vencimento: '2026-10-05' } },
+    { movimento: { id: 'm4', data: '2026-10-07', valor: -964.62, historico: 'PAG BOLETO' },
+      parcela: { nome: 'F F Distribuidora', descricao: 'Compra mercadoria', vencimento: '2026-10-20' } }
+  ];
+  const r = C.casarComprovantes(pares, [{ id: 'pix', ...pix }, { id: 'forn', ...forn }], { janelaDias: 3 });
+  assert.deepStrictEqual(r, { m2: 'pix', m3: 'forn' });
+});
+
+test('comprovante sem data e sem nome só é ligado se não houver ambiguidade', () => {
+  const par = (id, nome) => ({ movimento: { id, data: '2026-10-06', valor: -490, historico: '' }, parcela: { nome, descricao: 'x' } });
+  const c = [{ id: 'c', valores: [49000], datas: [], vencimentos: [], texto: 'VALOR R$ 490,00' }];
+  assert.deepStrictEqual(C.casarComprovantes([par('m1', 'Ana')], c), { m1: 'c' });
+  assert.deepStrictEqual(C.casarComprovantes([par('m1', 'Ana'), par('m2', 'Bia')], c), {});
+});
