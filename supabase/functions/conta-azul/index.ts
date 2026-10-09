@@ -5,6 +5,11 @@
 //   CONTA_AZUL_REDIRECT_URI – URL desta função (…/functions/v1/conta-azul)
 //   APP_URL                 – URL da página conciliacao.html (volta após o login)
 //   ROBO_KEY                – senha que a página envia no header x-robo-key
+//   CONTA_AZUL_ANEXO_PATH   – (opcional) rota da API para enviar anexo, ex.:
+//                             /v1/financeiro/eventos-financeiros/parcelas/{parcela_id}/anexos
+//                             Aceita {parcela_id} e {baixa_id}. Sem ela, o link do
+//                             comprovante vai na observação da baixa.
+//   CONTA_AZUL_ANEXO_CAMPO  – (opcional) nome do campo do arquivo no multipart (padrão "file")
 // SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY já existem em toda Edge Function.
 //
 // Deploy: supabase functions deploy conta-azul --no-verify-jwt
@@ -20,6 +25,10 @@ const CLIENT_SECRET = Deno.env.get('CONTA_AZUL_CLIENT_SECRET') ?? '';
 const REDIRECT_URI = Deno.env.get('CONTA_AZUL_REDIRECT_URI') ?? '';
 const APP_URL = Deno.env.get('APP_URL') ?? '';
 const ROBO_KEY = Deno.env.get('ROBO_KEY') ?? '';
+const ANEXO_PATH = Deno.env.get('CONTA_AZUL_ANEXO_PATH') ?? '';
+const ANEXO_CAMPO = Deno.env.get('CONTA_AZUL_ANEXO_CAMPO') ?? 'file';
+const BUCKET = 'comprovantes';
+const MAX_COMPROVANTE = 10 * 1024 * 1024;
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
@@ -65,9 +74,10 @@ async function accessToken(): Promise<string> {
 }
 
 async function ca(path: string, init: RequestInit = {}) {
+  const json = !(init.body instanceof FormData); // multipart: o fetch define o boundary
   const r = await fetch(API + path, {
     ...init,
-    headers: { Authorization: `Bearer ${await accessToken()}`, 'Content-Type': 'application/json', ...(init.headers ?? {}) },
+    headers: { Authorization: `Bearer ${await accessToken()}`, ...(json ? { 'Content-Type': 'application/json' } : {}), ...(init.headers ?? {}) },
   });
   const txt = await r.text();
   const body = txt ? (() => { try { return JSON.parse(txt); } catch { return txt; } })() : null;
@@ -107,10 +117,38 @@ async function contasFinanceiras() {
   return (r?.itens ?? r?.items ?? r ?? []).map((c: any) => ({ id: c.id, nome: c.nome, banco: c.banco, tipo: c.tipo }));
 }
 
+type Comprovante = { path: string; url: string; nome: string };
 type Baixa = {
   fitid: string; parcela_id: string; tipo: string; data: string; valor: number;
   conta_financeira: string; metodo_pagamento?: string; historico?: string;
+  comprovante?: Comprovante;
 };
+
+// ---------- comprovantes ----------
+async function salvarComprovante(p: { nome?: string; base64?: string; tipo?: string }) {
+  if (!p.base64) throw new Error('Arquivo vazio');
+  const bytes = Uint8Array.from(atob(p.base64), (c) => c.charCodeAt(0));
+  if (bytes.length > MAX_COMPROVANTE) throw new Error('Comprovante maior que 10 MB');
+  const nome = (p.nome || 'comprovante').normalize('NFD').replace(/[^\w.-]+/g, '_').slice(-80);
+  const path = `${crypto.randomUUID()}/${nome}`;
+  const { error } = await db.storage.from(BUCKET).upload(path, bytes, { contentType: p.tipo || 'application/octet-stream' });
+  if (error) throw error;
+  return { path, nome, url: db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl };
+}
+
+const temAnexo = (parcela: any) =>
+  (parcela?.anexos?.length ?? 0) > 0 ||
+  (parcela?.baixas ?? []).some((b: any) => (b?.anexos?.length ?? 0) > 0);
+
+// envia o arquivo para o Conta Azul pela rota configurada em CONTA_AZUL_ANEXO_PATH
+async function enviarAnexo(c: Comprovante, parcelaId: string, baixaId: string) {
+  const { data, error } = await db.storage.from(BUCKET).download(c.path);
+  if (error) throw error;
+  const fd = new FormData();
+  fd.append(ANEXO_CAMPO, data, c.nome);
+  const path = ANEXO_PATH.replace('{parcela_id}', parcelaId).replace('{baixa_id}', baixaId ?? '');
+  await ca(path, { method: 'POST', body: fd });
+}
 
 async function baixar(b: Baixa) {
   // trava contra baixa dupla do mesmo movimento do extrato
@@ -119,19 +157,31 @@ async function baixar(b: Baixa) {
 
   try {
     const parcela = await ca(`/v1/financeiro/eventos-financeiros/parcelas/${b.parcela_id}`);
+    // anexo: ja_tinha | anexado | link (na observação) | falta (sem comprovante) | erro
+    let anexo = temAnexo(parcela) ? 'ja_tinha' : b.comprovante ? (ANEXO_PATH ? 'anexado' : 'link') : 'falta';
+    let observacao = `Conciliação automática: ${b.historico ?? ''}`.slice(0, 120);
+    if (anexo === 'link') observacao += ` | Comprovante: ${b.comprovante!.url}`;
     const body: Record<string, unknown> = {
       data_pagamento: b.data,
       composicao_valor: { valor_bruto: b.valor },
       conta_financeira: b.conta_financeira,
       metodo_pagamento: b.metodo_pagamento || 'TRANSFERENCIA_BANCARIA',
-      observacao: `Conciliação automática: ${b.historico ?? ''}`.slice(0, 250),
+      observacao,
     };
     if (parcela?.versao != null) body.versao = parcela.versao;
     const r = await ca(`/v1/financeiro/eventos-financeiros/parcelas/${b.parcela_id}/baixa`, {
       method: 'POST', body: JSON.stringify(body),
     });
-    await db.from('conciliacao_log').insert({ ...logRow(b), status: 'ok', baixa_id: r?.id ?? null });
-    return { fitid: b.fitid, status: 'ok', baixa_id: r?.id };
+    let erroAnexo: string | undefined;
+    if (anexo === 'anexado') {
+      // a baixa já foi feita; falha no anexo não desfaz a baixa
+      try { await enviarAnexo(b.comprovante!, b.parcela_id, r?.id); }
+      catch (e) { anexo = 'erro'; erroAnexo = String((e as Error).message ?? e); }
+    }
+    await db.from('conciliacao_log').insert({
+      ...logRow(b), status: 'ok', baixa_id: r?.id ?? null, anexo, erro: erroAnexo ?? null,
+    });
+    return { fitid: b.fitid, status: 'ok', baixa_id: r?.id, anexo, erro: erroAnexo };
   } catch (e) {
     const erro = String((e as Error).message ?? e);
     await db.from('conciliacao_log').insert({ ...logRow(b), status: 'erro', erro });
@@ -141,6 +191,7 @@ async function baixar(b: Baixa) {
 const logRow = (b: Baixa) => ({
   fitid: b.fitid, parcela_id: b.parcela_id, tipo: b.tipo, data: b.data, valor: b.valor,
   conta_financeira: b.conta_financeira, historico: b.historico ?? null,
+  comprovante_url: b.comprovante?.url ?? null,
 });
 
 // ---------- roteamento ----------
@@ -192,6 +243,8 @@ Deno.serve(async (req) => {
         const { data } = await db.from('conciliacao_log').select('fitid').eq('status', 'ok').in('fitid', p.fitids ?? []);
         return json((data ?? []).map((r) => r.fitid));
       }
+      case 'comprovante-upload':
+        return json(await salvarComprovante(p));
       case 'baixar': {
         const out = [];
         for (const b of (p.baixas ?? []) as Baixa[]) out.push(await baixar(b)); // sequencial: evita 429

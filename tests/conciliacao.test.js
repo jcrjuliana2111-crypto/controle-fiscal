@@ -66,3 +66,17 @@ test('conciliar respeita a janela de dias', () => {
     { janelaDias: 5 });
   assert.strictEqual(r.pares.length, 0);
 });
+
+test('casarComprovantes liga por valor, data e nome', () => {
+  const pares = [
+    { movimento: { id: 'm1', data: '2026-10-01', valor: -500, historico: 'PIX ENVIADO' }, parcela: { nome: 'Alfa Ltda' } },
+    { movimento: { id: 'm2', data: '2026-10-01', valor: -500, historico: 'PIX ENVIADO' }, parcela: { nome: 'Beta SA' } },
+    { movimento: { id: 'm3', data: '2026-10-05', valor: 80, historico: 'TED' }, parcela: { nome: 'Gama' } }
+  ];
+  const comps = [
+    { id: 'c1', valor: 500, data: '2026-10-01', nome: 'BETA SA' },
+    { id: 'c2', valor: 500, data: '2026-10-02', nome: 'ALFA LTDA' },
+    { id: 'c3', valor: 80, data: '2026-10-20', nome: 'Gama' } // fora da janela
+  ];
+  assert.deepStrictEqual(C.casarComprovantes(pares, comps, { janelaDias: 3 }), { m1: 'c2', m2: 'c1' });
+});

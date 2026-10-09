@@ -178,7 +178,32 @@
     };
   }
 
-  const api = { parseValorBR, parseData, parseOFX, parseCSV, parseExtrato, similaridadeNome, conciliar };
+  // Liga comprovantes (já lidos: {id, valor, data, nome}) às sugestões de baixa.
+  // Exige o mesmo valor e data até `janelaDias` do movimento; desempata pela
+  // data mais próxima e pelo nome. Retorna { idMovimento: idComprovante }.
+  function casarComprovantes(pares, comprovantes, opts) {
+    const janela = (opts && opts.janelaDias) != null ? opts.janelaDias : 3;
+    const cand = [];
+    for (const par of pares) {
+      const cents = Math.round(Math.abs(par.movimento.valor) * 100);
+      for (const c of comprovantes) {
+        if (!c.data || Math.round(Math.abs(c.valor) * 100) !== cents) continue;
+        const dias = diasEntre(par.movimento.data, c.data);
+        if (dias > janela) continue;
+        const nome = Math.max(similaridadeNome(c.nome, par.parcela.nome), similaridadeNome(par.movimento.historico, c.nome));
+        cand.push({ m: par.movimento.id, c: c.id, score: 10 * nome - dias });
+      }
+    }
+    cand.sort((a, b) => b.score - a.score);
+    const usadosM = new Set(), usadosC = new Set(), out = {};
+    for (const x of cand) {
+      if (usadosM.has(x.m) || usadosC.has(x.c)) continue;
+      usadosM.add(x.m); usadosC.add(x.c); out[x.m] = x.c;
+    }
+    return out;
+  }
+
+  const api = { parseValorBR, parseData, parseOFX, parseCSV, parseExtrato, similaridadeNome, conciliar, casarComprovantes };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Conciliacao = api;
 })(this);

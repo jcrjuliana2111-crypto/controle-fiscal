@@ -63,6 +63,9 @@
   .msg.info { background: rgba(79,124,255,.12); color: var(--accent); }
   .msg.erro { background: rgba(255,95,95,.12); color: var(--danger); }
   .msg.ok { background: rgba(79,207,138,.12); color: var(--success); }
+  .anexo-btn { cursor: pointer; color: var(--accent); font-size: 12px; white-space: nowrap; }
+  .anexo-btn input { display: none; }
+  .x { cursor: pointer; color: var(--text2); margin-left: 4px; }
   .empty { padding: 30px; text-align: center; color: var(--text2); }
   @media (max-width: 700px) {
     header { padding: 0 16px; } main { padding: 16px; }
@@ -119,9 +122,13 @@
       <label>Arquivo OFX ou CSV
         <input type="file" id="arquivo" accept=".ofx,.csv,.txt">
       </label>
+      <label>Comprovantes de pagamento (opcional)
+        <input type="file" id="comprovantes" accept=".pdf,.png,.jpg,.jpeg,.webp" multiple>
+      </label>
       <button class="btn btn-primary" id="btnRodar" onclick="rodar()">▶ Rodar conciliação</button>
     </div>
-    <p class="muted" style="margin-top:10px">CSV: precisa das colunas <b>Data</b> e <b>Valor</b> (ou <b>Crédito</b>/<b>Débito</b>) e, de preferência, <b>Histórico</b>. Entradas casam com contas a receber; saídas com contas a pagar.</p>
+    <p class="muted" style="margin-top:10px">CSV: precisa das colunas <b>Data</b> e <b>Valor</b> (ou <b>Crédito</b>/<b>Débito</b>) e, de preferência, <b>Histórico</b>. Entradas casam com contas a receber; saídas com contas a pagar.<br>
+    Comprovantes (PDF ou imagem) são lidos automaticamente e ligados ao movimento de mesmo valor e data. Na baixa, o comprovante só é anexado se o lançamento ainda não tiver anexo.</p>
     <div id="msgRodar" class="msg"></div>
   </div>
 
@@ -147,7 +154,11 @@ const FN_URL = 'https://qftusjwnlyjokilcjuzb.supabase.co/functions/v1/conta-azul
 
 let movimentos = [], resultado = null, jaConciliados = new Set(), aba = 'pares';
 const selecionados = new Set();   // ids de movimentos marcados
-const retornos = {};              // fitid -> {status, erro}
+const retornos = {};              // fitid -> {status, erro, anexo}
+let comprovantes = [];            // {id, file, valor, data, nome, erro}
+const vinculo = {};               // id do movimento -> id do comprovante
+const ANEXO_TXT = { ja_tinha: 'já tinha anexo', anexado: 'comprovante anexado', link: 'link do comprovante na observação', falta: 'sem comprovante', erro: 'erro ao anexar' };
+const PROXY = 'https://qftusjwnlyjokilcjuzb.supabase.co/functions/v1/smart-handler';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -220,6 +231,57 @@ function lerArquivo(f) {
   });
 }
 
+async function paraBase64(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode(...bytes.subarray(i, i + 8192));
+  return btoa(bin);
+}
+
+// Lê valor, data e favorecido/pagador de um comprovante com a IA (via smart-handler)
+async function lerComprovante(file) {
+  const data = await paraBase64(file);
+  const pdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  const midia = pdf
+    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data } }
+    : { type: 'image', source: { type: 'base64', media_type: file.type || 'image/jpeg', data } };
+  const r = await fetch(PROXY, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-action': 'claude' },
+    body: JSON.stringify({
+      model: 'claude-opus-5-5',
+      max_tokens: 1024,
+      output_config: { effort: 'low' },
+      messages: [{ role: 'user', content: [midia, { type: 'text', text:
+        'Este é um comprovante de pagamento brasileiro (PIX, TED, boleto, transferência). ' +
+        'Responda só com JSON, sem markdown: {"valor": número em reais com ponto decimal, ' +
+        '"data": "YYYY-MM-DD" do pagamento, "nome": "nome do favorecido/recebedor ou do pagador, o que não for a empresa titular da conta"}. ' +
+        'Se não for um comprovante, responda {"valor": null, "data": null, "nome": ""}.' }] }]
+    })
+  });
+  if (!r.ok) throw new Error(`IA ${r.status}`);
+  const resp = await r.json();
+  if (resp.stop_reason === 'refusal') throw new Error('IA recusou ler o arquivo');
+  const txt = (resp.content || []).filter(b => b.type === 'text').map(b => b.text).join('').replace(/```json|```/gi, '').trim();
+  const j = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
+  return { valor: Number(j.valor) || 0, data: Conciliacao.parseData(j.data || ''), nome: j.nome || '' };
+}
+
+async function lerComprovantes(files) {
+  const lista = Array.from(files).map((file, i) => ({ id: 'c' + i + '_' + file.name, file }));
+  let feitos = 0;
+  const fila = [...lista];
+  // até 3 leituras em paralelo
+  await Promise.all([0, 1, 2].map(async () => {
+    for (let c; (c = fila.shift());) {
+      try { Object.assign(c, await lerComprovante(c.file)); }
+      catch (e) { c.erro = e.message; }
+      msg('msgRodar', 'info', `Lendo comprovantes… ${++feitos}/${lista.length}`);
+    }
+  }));
+  return lista;
+}
+
 function somarDias(d, n) {
   const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() + n);
   return x.toISOString().slice(0, 10);
@@ -256,8 +318,15 @@ async function rodar() {
     for (const k in retornos) delete retornos[k];
     resultado.pares.filter(p => p.confianca === 'alta').forEach(p => selecionados.add(p.movimento.id));
 
+    for (const k in vinculo) delete vinculo[k];
+    const arqs = $('comprovantes').files;
+    comprovantes = arqs.length ? await lerComprovantes(arqs) : [];
+    Object.assign(vinculo, Conciliacao.casarComprovantes(resultado.pares, comprovantes.filter(c => !c.erro), { janelaDias: 3 }));
+    const ilegiveis = comprovantes.filter(c => c.erro).length;
+
     msg('msgRodar', 'ok', `Pronto: ${resultado.pares.length} sugestões, ${parcelas.length} lançamentos em aberto analisados` +
-      (jaConciliados.size ? `, ${jaConciliados.size} movimentos já conciliados antes foram ignorados.` : '.'));
+      (jaConciliados.size ? `, ${jaConciliados.size} movimentos já conciliados antes foram ignorados` : '') +
+      (comprovantes.length ? `. Comprovantes: ${Object.keys(vinculo).length} de ${comprovantes.length} ligados` + (ilegiveis ? `, ${ilegiveis} não puderam ser lidos` : '') : '') + '.');
     $('resultado').style.display = '';
     render();
   } catch (e) {
@@ -283,6 +352,7 @@ function render() {
     ['Sugestões', r.pares.length, 'color:var(--accent)'],
     ['Confiança alta', r.pares.filter(p => p.confianca === 'alta').length, 'color:var(--success)'],
     ['Sem lançamento', r.semParcela.length, 'color:var(--warn)'],
+    ['Com comprovante', r.pares.filter(p => vinculo[p.movimento.id]).length, 'color:var(--accent2)'],
     ['Baixas feitas', feitos, 'color:var(--success)']
   ].map(([l, v, s]) => `<div class="stat"><div class="stat-label">${l}</div><div class="stat-value" style="${s}">${v}</div></div>`).join('');
 
@@ -293,7 +363,7 @@ function render() {
     else html = `<table><thead><tr>
       <th><input type="checkbox" onchange="marcarTodos(this.checked)"></th>
       <th>Data banco</th><th>Histórico do extrato</th><th>Valor</th>
-      <th>Lançamento Conta Azul</th><th>Vencimento</th><th>Confiança</th><th>Resultado</th></tr></thead><tbody>` +
+      <th>Lançamento Conta Azul</th><th>Vencimento</th><th>Confiança</th><th>Comprovante</th><th>Resultado</th></tr></thead><tbody>` +
       r.pares.map(p => {
         const ret = retornos[p.movimento.id];
         const travado = ret && ret.status === 'ok';
@@ -306,7 +376,10 @@ function render() {
           <td>${esc(p.parcela.nome || '—')}<div class="muted">${p.parcela.tipo === 'receber' ? 'A receber' : 'A pagar'} · ${esc(p.parcela.descricao)}</div></td>
           <td class="mono">${fmtData(p.parcela.vencimento)}<div class="muted">${p.dias} dia(s)</div></td>
           <td><span class="pill ${p.confianca}">${p.confianca}</span></td>
-          <td>${ret ? `<span class="pill ${ret.status}">${ret.status}</span>${ret.erro ? `<div class="muted">${esc(ret.erro)}</div>` : ''}` : ''}</td>
+          <td>${comprovanteHtml(p.movimento.id, travado)}</td>
+          <td>${ret ? `<span class="pill ${ret.status}">${ret.status}</span>` +
+            (ret.anexo ? `<div class="muted">${ANEXO_TXT[ret.anexo] || esc(ret.anexo)}</div>` : '') +
+            (ret.erro ? `<div class="muted">${esc(ret.erro)}</div>` : '') : ''}</td>
         </tr>`;
       }).join('') + '</tbody></table>';
   } else if (aba === 'semParcela') {
@@ -323,6 +396,21 @@ function render() {
   }
   $('tabela').innerHTML = html;
 }
+
+function comprovanteHtml(movId, travado) {
+  const c = comprovantes.find(x => x.id === vinculo[movId]);
+  if (c) return `📎 ${esc(c.file.name)}${travado ? '' : `<span class="x" title="Remover" onclick="desvincular('${esc(movId)}')">✕</span>`}`;
+  if (travado) return '';
+  return `<label class="anexo-btn">＋ anexar<input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onchange="vincularManual('${esc(movId)}', this.files[0])"></label>`;
+}
+function vincularManual(movId, file) {
+  if (!file) return;
+  const c = { id: 'm_' + movId + '_' + Date.now(), file, manual: true };
+  comprovantes.push(c);
+  vinculo[movId] = c.id;
+  render();
+}
+function desvincular(movId) { delete vinculo[movId]; render(); }
 
 function marcar(id, on) { on ? selecionados.add(id) : selecionados.delete(id); }
 function marcarTodos(on) {
@@ -344,12 +432,21 @@ async function darBaixa() {
   try {
     // lotes de 20 para não estourar o tempo da Edge Function
     for (let i = 0; i < lote.length; i += 20) {
-      const parte = lote.slice(i, i + 20).map(p => ({
-        fitid: p.movimento.id, parcela_id: p.parcela.id, tipo: p.parcela.tipo,
-        data: p.movimento.data, valor: Math.abs(p.movimento.valor),
-        conta_financeira: conta, metodo_pagamento: $('metodo').value, historico: p.movimento.historico
-      }));
-      msg('msgRodar', 'info', `Dando baixa… ${i + parte.length}/${lote.length}`);
+      const fatia = lote.slice(i, i + 20);
+      msg('msgRodar', 'info', `Enviando comprovantes e dando baixa… ${i + fatia.length}/${lote.length}`);
+      const parte = [];
+      for (const p of fatia) {
+        const c = comprovantes.find(x => x.id === vinculo[p.movimento.id]);
+        if (c && !c.enviado) {
+          c.enviado = await api('comprovante-upload', { nome: c.file.name, tipo: c.file.type, base64: await paraBase64(c.file) });
+        }
+        parte.push({
+          fitid: p.movimento.id, parcela_id: p.parcela.id, tipo: p.parcela.tipo,
+          data: p.movimento.data, valor: Math.abs(p.movimento.valor),
+          conta_financeira: conta, metodo_pagamento: $('metodo').value, historico: p.movimento.historico,
+          comprovante: c ? c.enviado : undefined
+        });
+      }
       for (const res of await api('baixar', { baixas: parte })) {
         retornos[res.fitid] = res;
         if (res.status === 'ok') selecionados.delete(res.fitid);
@@ -358,7 +455,10 @@ async function darBaixa() {
     }
     const vals = Object.values(retornos);
     const erros = vals.filter(x => x.status === 'erro').length;
-    msg('msgRodar', erros ? 'erro' : 'ok', `${vals.filter(x => x.status === 'ok').length} baixa(s) registradas` + (erros ? `, ${erros} com erro (veja a coluna Resultado).` : '.'));
+    const faltam = vals.filter(x => x.anexo === 'falta').length;
+    msg('msgRodar', erros ? 'erro' : 'ok', `${vals.filter(x => x.status === 'ok').length} baixa(s) registradas` +
+      (erros ? `, ${erros} com erro (veja a coluna Resultado)` : '') +
+      (faltam ? `. ${faltam} lançamento(s) continuam sem comprovante.` : '.'));
   } catch (e) {
     msg('msgRodar', 'erro', esc(e.message));
   } finally {
@@ -367,9 +467,10 @@ async function darBaixa() {
 }
 
 function exportarCSV() {
-  const linhas = [['situacao', 'data', 'historico', 'valor', 'lancamento', 'tipo', 'vencimento', 'confianca', 'resultado']];
+  const linhas = [['situacao', 'data', 'historico', 'valor', 'lancamento', 'tipo', 'vencimento', 'confianca', 'resultado', 'comprovante', 'anexo']];
   resultado.pares.forEach(p => linhas.push(['sugestao', p.movimento.data, p.movimento.historico, p.movimento.valor,
-    p.parcela.nome, p.parcela.tipo, p.parcela.vencimento, p.confianca, retornos[p.movimento.id]?.status || '']));
+    p.parcela.nome, p.parcela.tipo, p.parcela.vencimento, p.confianca, retornos[p.movimento.id]?.status || '',
+    comprovantes.find(x => x.id === vinculo[p.movimento.id])?.file.name || '', ANEXO_TXT[retornos[p.movimento.id]?.anexo] || '']));
   resultado.semParcela.forEach(m => linhas.push(['extrato_sem_lancamento', m.data, m.historico, m.valor, '', '', '', '', '']));
   resultado.parcelasSemMovimento.forEach(p => linhas.push(['lancamento_sem_extrato', '', p.descricao, p.valor, p.nome, p.tipo, p.vencimento, '', '']));
   const csv = linhas.map(l => l.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');

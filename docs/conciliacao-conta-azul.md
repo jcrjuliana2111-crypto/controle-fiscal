@@ -28,6 +28,31 @@ Nada é baixado sem você clicar em **Dar baixa nos selecionados** e confirmar.
 Cada movimento baixado fica registrado em `conciliacao_log`; se você subir o
 mesmo extrato de novo, ele é ignorado (não há baixa dupla).
 
+## Comprovantes de pagamento
+
+Junto com o extrato você pode enviar os comprovantes (PDF, JPG, PNG). O robô:
+
+1. Lê cada comprovante com IA (valor, data e favorecido/pagador), usando o
+   proxy `smart-handler` que o app já usa para ler notificações.
+2. Liga o comprovante ao movimento do extrato de **mesmo valor** e data até
+   3 dias de diferença (desempata pelo nome). Dá para anexar ou remover à mão
+   na coluna *Comprovante*.
+3. Na baixa, consulta a parcela no Conta Azul e **só anexa se ela ainda não
+   tiver anexo**. A coluna *Resultado* mostra: *já tinha anexo*, *comprovante
+   anexado*, *link do comprovante na observação* ou *sem comprovante*.
+
+Os arquivos ficam no bucket `comprovantes` do Supabase (link com caminho
+aleatório).
+
+**Sobre o anexo nativo do Conta Azul:** a API v2 mostra os anexos de parcelas
+e baixas, mas não achamos na documentação pública uma rota para *enviar*
+anexo. Por isso, por padrão, o robô grava o link do comprovante na observação
+da baixa. Se o Conta Azul liberar (ou já tiver) essa rota, basta configurar o
+secret `CONTA_AZUL_ANEXO_PATH` (ex.:
+`/v1/financeiro/eventos-financeiros/parcelas/{parcela_id}/anexos`) e, se
+precisar, `CONTA_AZUL_ANEXO_CAMPO` (nome do campo do arquivo, padrão `file`).
+Aí o arquivo é enviado direto ao Conta Azul.
+
 ## Configuração (uma vez)
 
 ### 1. Criar o app no Conta Azul
@@ -39,8 +64,9 @@ mesmo extrato de novo, ele é ignorado (não há baixa dupla).
 
 ### 2. Banco de dados
 
-Rode a migração (SQL Editor do Supabase ou `supabase db push`):
-`supabase/migrations/20261009000000_conta_azul_conciliacao.sql`
+Rode as migrações (SQL Editor do Supabase ou `supabase db push`), nesta ordem:
+`supabase/migrations/20261009000000_conta_azul_conciliacao.sql` e
+`supabase/migrations/20261009010000_conciliacao_comprovantes.sql`
 
 ### 3. Segredos e deploy da função
 
