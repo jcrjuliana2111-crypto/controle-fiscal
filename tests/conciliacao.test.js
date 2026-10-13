@@ -150,3 +150,11 @@ test('nome do arquivo + texto do PDF juntos', () => {
   ];
   assert.deepStrictEqual(C.casarComprovantes(pares, [{ id: 'f', ...forn }, { id: 'x', ...pix }]), { b1: 'f', p1: 'x' });
 });
+
+test('cópia do motor na skill está igual à do robô', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const ler = p => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
+  assert.strictEqual(ler('.claude/skills/conciliacao-conta-azul/scripts/conciliacao-core.js'), ler('conciliacao-core.js'),
+    'Copie conciliacao-core.js para .claude/skills/conciliacao-conta-azul/scripts/');
+});
