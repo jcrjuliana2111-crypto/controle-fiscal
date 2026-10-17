@@ -59,9 +59,10 @@ passa por IA — a leitura é feita no seu navegador:
    descrição batendo. Um comprovante sem data e sem nome/descrição reconhecível
    só é ligado se for a única opção com aquele valor. Dá para anexar ou remover
    à mão na coluna *Comprovante*.
-4. Na baixa, consulta a parcela no Conta Azul e **só anexa se ela ainda não
-   tiver anexo**. A coluna *Resultado* mostra: *já tinha anexo*, *comprovante
-   anexado*, *link do comprovante na observação* ou *sem comprovante*.
+4. Na baixa, o comprovante ligado é **sempre enviado, mesmo que o lançamento
+   já tenha outros anexos** (soma, não substitui). A coluna *Resultado* mostra:
+   *comprovante anexado*, *link do comprovante na observação*, *já tinha anexo*
+   (sem comprovante novo, mas o lançamento já tinha anexo) ou *sem comprovante*.
 
 Subpastas também são lidas. No **Chrome/Edge** o navegador lembra a pasta: nas
 próximas vezes basta clicar em *Rodar conciliação* (ele pode pedir para

@@ -157,8 +157,9 @@ async function baixar(b: Baixa) {
 
   try {
     const parcela = await ca(`/v1/financeiro/eventos-financeiros/parcelas/${b.parcela_id}`);
-    // anexo: ja_tinha | anexado | link (na observação) | falta (sem comprovante) | erro
-    let anexo = temAnexo(parcela) ? 'ja_tinha' : b.comprovante ? (ANEXO_PATH ? 'anexado' : 'link') : 'falta';
+    // anexo: anexado | link (na observação) | ja_tinha (sem comprovante novo, mas a parcela já tem anexo) | falta | erro
+    // O comprovante é enviado mesmo que a parcela já tenha outros anexos (soma, não substitui).
+    let anexo = b.comprovante ? (ANEXO_PATH ? 'anexado' : 'link') : temAnexo(parcela) ? 'ja_tinha' : 'falta';
     let observacao = `Conciliação automática: ${b.historico ?? ''}`.slice(0, 120);
     if (anexo === 'link') observacao += ` | Comprovante: ${b.comprovante!.url}`;
     const body: Record<string, unknown> = {

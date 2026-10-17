@@ -111,13 +111,13 @@ Coluna **Comprovante**: mostra o arquivo ligado; dá para remover (✕) ou anexa
 
 1. consulta a parcela no Conta Azul;
 2. registra a baixa (data do banco, valor, conta financeira, forma de pagamento);
-3. comprovante: **só anexa se a parcela ainda não tiver anexo**.
+3. comprovante: **sempre envia o comprovante ligado, mesmo que a parcela já tenha outros anexos** (pedido da usuária: soma, não substitui).
 
 A coluna *Resultado* mostra `ok`/`erro` e a situação do comprovante:
 
 | Texto | Significado |
 |---|---|
-| já tinha anexo | nada foi enviado |
+| já tinha anexo | nenhum comprovante ligado na linha, mas a parcela já tinha anexo |
 | link do comprovante na observação | padrão hoje: arquivo no Supabase, link na observação da baixa |
 | comprovante anexado | enviado direto ao Conta Azul (só se `CONTA_AZUL_ANEXO_PATH` estiver configurado) |
 | sem comprovante | nenhum comprovante ligado e a parcela não tem anexo |
