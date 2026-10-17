@@ -131,23 +131,71 @@
   }
 
   // --- conciliação ---
+  // Nome do favorecido/pagador quando o histórico é de PIX/TED/DOC/transferência
+  // ("PIX ( DOC.: DEB PIX / ROGERIO LIMA DOS SANTOS )", "TED BETA SERVICOS").
+  // Boletos, tarifas e débitos automáticos não trazem nome confiável → ''.
+  const GENERICO = new Set(['deb', 'cred', 'env', 'rec', 'recebida', 'enviada', 'instantaneo', 'ib',
+    'agendado', 'agend', 'mesma', 'titularidade', 'outra', 'outras', 'banco', 'agencia', 'qrcode', 'chave']);
+  function nomeNoExtrato(historico) {
+    const h = String(historico || '');
+    if (!/\b(pix|ted|transf\w*|doc)\b/i.test(h)) return '';
+    if (/liquida[cç]|t[ií]tulo|boleto|bloqueto|tarifa|\biof\b|juros|cesta|convenio|conv[eê]nio/i.test(h)) return '';
+    const trecho = h.includes('/') ? h.slice(h.lastIndexOf('/') + 1) : h;
+    const t = tokens(trecho).filter(x => !GENERICO.has(x));
+    return t.length >= 2 ? t.join(' ') : '';
+  }
+
+  // nome do extrato bate com o contato (ou com a descrição) do lançamento?
+  function nomeBate(nomeExtrato, parcela) {
+    const sim = (a, b) => Math.max(similaridadeNome(a, b), similaridadeNome(b, a));
+    return Math.max(sim(nomeExtrato, parcela.nome), sim(nomeExtrato, parcela.descricao)) >= 0.5;
+  }
+
+  // diferença entre o que caiu no banco e o valor da parcela:
+  // a maior → juros (ou multa); a menor → desconto.
+  function ajusteDe(movimento, parcela) {
+    const dif = Math.round(Math.abs(movimento.valor) * 100) - Math.round(parcela.valor * 100);
+    if (!dif) return null;
+    return { tipo: dif > 0 ? 'juros' : 'desconto', valor: Math.abs(dif) / 100 };
+  }
+
+  // monta um par escolhido à mão na tela
+  function montarPar(movimento, parcela) {
+    return { movimento, parcela, dias: diasEntre(movimento.data, parcela.vencimento), similaridade: 0,
+      score: 0, confianca: 'manual', ajuste: ajusteDe(movimento, parcela) };
+  }
+
   // movimentos: [{id, data, valor(+ entrada / - saída), historico}]
   // parcelas:   [{id, tipo:'receber'|'pagar', vencimento, valor, nome, descricao}]
-  // Regras: valor igual (centavos), tipo compatível com o sinal e vencimento
-  // até `janelaDias` de distância. Cada parcela casa com no máximo um movimento.
+  // Regras:
+  //  1. valor igual (centavos), tipo compatível com o sinal e vencimento até
+  //     `janelaDias` de distância;
+  //  2. se o histórico traz nome (PIX/TED/DOC), ele PRECISA bater com o contato ou
+  //     a descrição — senão vira só "possível" em semParcela, para vincular à mão;
+  //  3. sem casamento exato: mesmo contato (nome ≥ 50%), diferença de até
+  //     `margemAjuste` (15%) e até `janelaAjuste` (30) dias → sugestão com juros/desconto.
+  // Cada parcela casa com no máximo um movimento.
   function conciliar(movimentos, parcelas, opts) {
     const janela = (opts && opts.janelaDias) != null ? opts.janelaDias : 5;
-    const cand = [];
+    const margem = (opts && opts.margemAjuste) != null ? opts.margemAjuste : 0.15;
+    const janelaAjuste = Math.max(janela, (opts && opts.janelaAjuste) != null ? opts.janelaAjuste : 30);
+    const cand = [], possiveis = {};
     for (const m of movimentos) {
       const tipo = m.valor > 0 ? 'receber' : 'pagar';
       const cents = Math.round(Math.abs(m.valor) * 100);
+      const nomeExt = nomeNoExtrato(m.historico);
       for (const p of parcelas) {
         if (p.tipo !== tipo || Math.round(p.valor * 100) !== cents) continue;
         const dias = diasEntre(m.data, p.vencimento);
         if (dias > janela) continue;
-        const nome = Math.max(similaridadeNome(m.historico, p.nome), similaridadeNome(m.historico, p.descricao) * 0.8);
+        if (nomeExt && !nomeBate(nomeExt, p)) {
+          (possiveis[m.id] = possiveis[m.id] || []).push({ parcela: p, dias, motivo: 'nome diferente' });
+          continue;
+        }
+        const nome = Math.max(similaridadeNome(m.historico, p.nome), similaridadeNome(m.historico, p.descricao) * 0.8,
+          nomeExt ? 1 : 0);
         const score = 60 + 20 * (1 - dias / (janela + 1)) + 20 * nome;
-        cand.push({ m, p, dias, nome, score });
+        cand.push({ m, p, dias, nome, score, nomeExt: !!nomeExt });
       }
     }
     cand.sort((a, b) => b.score - a.score);
@@ -161,21 +209,62 @@
       if (usadosM.has(c.m.id) || usadosP.has(c.p.id)) continue;
       usadosM.add(c.m.id); usadosP.add(c.p.id);
       const unico = nM[c.m.id] === 1 && nP[c.p.id] === 1;
+      // alta só com nome batendo; sem nome no extrato (boleto etc.) fica média para conferir
       let confianca = 'baixa';
       if (c.nome >= 0.5 && c.dias <= 3) confianca = 'alta';
-      else if (unico && c.dias <= 3) confianca = 'alta';
-      else if (c.nome >= 0.5 || unico) confianca = 'media';
+      else if (c.nome >= 0.5 || (unico && c.dias <= 3)) confianca = 'media';
       pares.push({
         movimento: c.m, parcela: c.p, dias: c.dias,
         similaridade: Math.round(c.nome * 100) / 100,
-        score: Math.round(c.score), confianca
+        score: Math.round(c.score), confianca, ajuste: null
       });
     }
+
+    // 3. juros / multa / desconto: mesmo contato, valor um pouco diferente
+    const candAj = [];
+    for (const m of movimentos) {
+      if (usadosM.has(m.id)) continue;
+      const tipo = m.valor > 0 ? 'receber' : 'pagar';
+      const nomeExt = nomeNoExtrato(m.historico);
+      for (const p of parcelas) {
+        if (usadosP.has(p.id) || p.tipo !== tipo || !(p.valor > 0)) continue;
+        const aj = ajusteDe(m, p);
+        if (!aj || aj.valor > p.valor * margem) continue;
+        const dias = diasEntre(m.data, p.vencimento);
+        if (dias > janelaAjuste) continue;
+        const nome = nomeExt ? (nomeBate(nomeExt, p) ? 1 : 0)
+          : Math.max(similaridadeNome(m.historico, p.nome), similaridadeNome(m.historico, p.descricao) * 0.8);
+        if (nome < 0.5) continue;
+        candAj.push({ m, p, dias, nome, aj, score: nome * 50 - dias - 100 * aj.valor / p.valor });
+      }
+    }
+    candAj.sort((a, b) => b.score - a.score);
+    for (const c of candAj) {
+      if (usadosM.has(c.m.id) || usadosP.has(c.p.id)) continue;
+      usadosM.add(c.m.id); usadosP.add(c.p.id);
+      pares.push({ movimento: c.m, parcela: c.p, dias: c.dias, similaridade: Math.round(c.nome * 100) / 100,
+        score: Math.round(c.score), confianca: 'media', ajuste: c.aj });
+    }
+
     return {
       pares,
-      semParcela: movimentos.filter(m => !usadosM.has(m.id)),
+      semParcela: movimentos.filter(m => !usadosM.has(m.id))
+        .map(m => possiveis[m.id] ? { ...m, possiveis: possiveis[m.id].filter(x => !usadosP.has(x.parcela.id)) } : m),
       parcelasSemMovimento: parcelas.filter(p => !usadosP.has(p.id))
     };
+  }
+
+  // Depois de ligar os comprovantes: se o comprovante traz o nome do contato,
+  // a sugestão de confiança média (sem nome no extrato) sobe para alta.
+  function reforcarComComprovantes(pares, vinculo, comprovantes) {
+    const porId = Object.fromEntries(comprovantes.map(c => [c.id, c]));
+    const subiram = [];
+    for (const p of pares) {
+      const c = porId[vinculo[p.movimento.id]];
+      if (!c || p.confianca !== 'media' || p.ajuste || p.dias > 3) continue;
+      if (similaridadeNome(c.texto, p.parcela.nome) >= 0.5) { p.confianca = 'alta'; subiram.push(p.movimento.id); }
+    }
+    return subiram;
   }
 
   // Extrai valores e datas de um comprovante sem IA: usa o texto do PDF
@@ -266,7 +355,45 @@
     return out;
   }
 
-  const api = { parseValorBR, parseData, parseOFX, parseCSV, parseExtrato, similaridadeNome, conciliar, dadosComprovante, casarComprovantes };
+  // Resumo do fechamento em texto, para enviar ao cliente.
+  // d = { cliente, conta, de, ate, movimentos, resultado, retornos, lancados, hoje }
+  function resumoFechamento(d) {
+    const brl = v => (v < 0 ? '-' : '') + 'R$ ' + Math.abs(Number(v)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const dt = s => s ? s.split('-').reverse().join('/') : '';
+    const soma = l => l.reduce((s, x) => s + Math.abs(x), 0);
+    const r = d.resultado, ret = d.retornos || {};
+    const baixados = r.pares.filter(p => ret[p.movimento.id]?.status === 'ok');
+    const lancados = d.lancados || [];
+    const lancIds = new Set(lancados.map(x => x.movimento.id));
+    const pend = r.semParcela.filter(m => !lancIds.has(m.id));
+    const sugAbertas = r.pares.filter(p => ret[p.movimento.id]?.status !== 'ok');
+    const hoje = d.hoje || new Date().toISOString().slice(0, 10);
+    const atrasados = r.parcelasSemMovimento.filter(p => p.vencimento && p.vencimento < hoje);
+    const L = [];
+    L.push(`RESUMO DA CONCILIAÇÃO BANCÁRIA${d.cliente ? ' — ' + d.cliente : ''}`);
+    if (d.conta) L.push(`Conta: ${d.conta}`);
+    L.push(`Período do extrato: ${dt(d.de)} a ${dt(d.ate)}`);
+    L.push('');
+    L.push(`Movimentos no extrato: ${d.movimentos.length} (entradas ${brl(soma(d.movimentos.filter(m => m.valor > 0).map(m => m.valor)))}, saídas ${brl(soma(d.movimentos.filter(m => m.valor < 0).map(m => m.valor)))})`);
+    L.push(`Baixados no Conta Azul: ${baixados.length} (${brl(soma(baixados.map(p => p.movimento.valor)))})`);
+    const comAj = baixados.filter(p => p.ajuste);
+    if (comAj.length) L.push(`  dos quais com juros/multa/desconto: ${comAj.length}`);
+    if (lancados.length) L.push(`Lançados a partir do extrato (tarifas, juros etc.): ${lancados.length} (${brl(soma(lancados.map(x => x.movimento.valor)))})`);
+    if (sugAbertas.length) L.push(`Sugestões ainda não baixadas: ${sugAbertas.length} (${brl(soma(sugAbertas.map(p => p.movimento.valor)))})`);
+    L.push('');
+    L.push(`PENDÊNCIAS — movimentos do banco sem lançamento: ${pend.length} (${brl(soma(pend.map(m => m.valor)))})`);
+    for (const m of pend) L.push(`  ${dt(m.data)}  ${brl(m.valor).padStart(14)}  ${(m.valor < 0 ? 'saída ' : 'entrada')}  ${m.historico}`);
+    L.push('');
+    L.push(`LANÇAMENTOS EM ABERTO SEM MOVIMENTO NO BANCO: ${r.parcelasSemMovimento.length}`);
+    if (atrasados.length) {
+      L.push(`  Vencidos (antes de ${dt(hoje)}): ${atrasados.length} (${brl(soma(atrasados.map(p => p.valor)))})`);
+      for (const p of atrasados) L.push(`  ${dt(p.vencimento)}  ${brl(p.valor).padStart(14)}  ${p.tipo === 'receber' ? 'a receber' : 'a pagar  '}  ${p.nome || ''}${p.descricao ? ' — ' + p.descricao : ''}`);
+    }
+    return L.join('\n');
+  }
+
+  const api = { parseValorBR, parseData, parseOFX, parseCSV, parseExtrato, similaridadeNome, conciliar, dadosComprovante, casarComprovantes,
+    nomeNoExtrato, nomeBate, ajusteDe, montarPar, reforcarComComprovantes, resumoFechamento };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Conciliacao = api;
 })(this);

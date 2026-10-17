@@ -67,6 +67,18 @@
   .anexo-btn input { display: none; }
   .x { cursor: pointer; color: var(--text2); margin-left: 4px; }
   .empty { padding: 30px; text-align: center; color: var(--text2); }
+  .pill.manual { background: rgba(79,124,255,.15); color: var(--accent); }
+  .pill.desfeito { background: var(--surface2); color: var(--text2); }
+  .link { cursor: pointer; color: var(--accent); font-size: 12px; text-decoration: underline; background: none; border: none; font-family: var(--font); padding: 0; }
+  .link.danger { color: var(--danger); }
+  .toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; padding: 14px; border-bottom: 1px solid var(--border); background: var(--surface2); border-radius: 12px 12px 0 0; }
+  .toolbar label { min-width: 200px; }
+  .toolbar select, .toolbar input { min-width: 0; width: 100%; }
+  .ajuste { font-size: 12px; color: var(--warn); margin-top: 4px; display: flex; gap: 6px; align-items: center; }
+  .ajuste select { padding: 2px 6px; font-size: 12px; min-width: 0; }
+  td select.vinc { min-width: 220px; max-width: 340px; font-size: 12px; padding: 6px 8px; }
+  .possivel { font-size: 12px; color: var(--warn); margin-top: 3px; }
+  textarea.resumo { width: 100%; min-height: 320px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-family: var(--mono); font-size: 12px; line-height: 1.5; }
   @media (max-width: 700px) {
     header { padding: 0 16px; } main { padding: 16px; }
     .row > * { flex: 1 1 100%; } input, select { min-width: 0; width: 100%; }
@@ -83,18 +95,25 @@
   </div>
 </header>
 
+
 <main>
   <!-- 1. CONEXÃO -->
   <div class="card">
-    <h2>1 · Conexão</h2>
+    <h2>1 · Cliente e conexão</h2>
     <div class="row">
       <label>Chave do robô
         <input type="password" id="roboKey" placeholder="ROBO_KEY definida no Supabase" onchange="salvarConfig()">
       </label>
-      <button class="btn btn-outline" onclick="verificarStatus()">Verificar</button>
+      <button class="btn btn-outline" onclick="iniciar()">Verificar</button>
+      <label>Cliente
+        <select id="cliente" onchange="trocarCliente()"><option value="">— verifique a chave —</option></select>
+      </label>
+      <button class="btn btn-outline" onclick="novoCliente()">＋ Novo cliente</button>
+      <button class="btn btn-outline" onclick="renomearCliente()">Renomear</button>
       <span id="statusCA" class="pill off">não verificado</span>
       <button class="btn btn-primary" id="btnConectar" onclick="conectar()">Conectar Conta Azul</button>
     </div>
+    <p class="muted" style="margin-top:10px">Cada cliente tem a sua conexão com o Conta Azul. Para conectar um cliente novo: <b>＋ Novo cliente</b> → <b>Conectar Conta Azul</b> → entrar com o usuário do Conta Azul <b>desse</b> cliente.</p>
     <div id="msgConexao" class="msg"></div>
   </div>
 
@@ -131,54 +150,75 @@
       </label>
       <button class="btn btn-primary" id="btnRodar" onclick="rodar()">▶ Rodar conciliação</button>
     </div>
-    <p class="muted" style="margin-top:10px">CSV: precisa das colunas <b>Data</b> e <b>Valor</b> (ou <b>Crédito</b>/<b>Débito</b>) e, de preferência, <b>Histórico</b>. Entradas casam com contas a receber; saídas com contas a pagar.<br>
-    Comprovantes: o robô lê o texto dos PDFs e o nome dos arquivos (sem IA). PIX: <code>FAVORECIDO / VALOR R$ 490,00 / descrição igual ao Conta Azul</code>. Fornecedor: <code>FORNECEDOR / VALOR R$ 964,62 / V 051026</code> (vencimento ddmmaa). Imagens só são reconhecidas pelo nome do arquivo. Na baixa, o robô só identifica o comprovante de cada lançamento (anexe à mão no Conta Azul); a observação recebe a marca de baixa automática, mantendo o que já estava escrito.</p>
+    <p class="muted" style="margin-top:10px">
+      <b>Regras:</b> valor igual ao centavo e data próxima. Em PIX/TED/DOC, o <b>nome do favorecido precisa bater</b> com o contato ou a descrição do lançamento — se não bater, o movimento vai para <i>Extrato sem lançamento</i> como “possível”, para você vincular à mão. Mesmo contato com valor um pouco diferente (até 15%) vira sugestão com <b>juros/multa ou desconto</b>.
+      Confiança <b>alta</b> (já marcada) só com nome batendo; <b>média</b> e <b>manual</b> vêm para conferir.<br>
+      Comprovantes: o robô lê o texto dos PDFs e o nome dos arquivos (sem IA) e só <b>identifica</b> o comprovante de cada lançamento — anexe à mão no Conta Azul. A observação da baixa recebe a marca de baixa automática, mantendo o que já estava escrito.</p>
     <div id="msgRodar" class="msg"></div>
   </div>
 
   <!-- 3. RESULTADO -->
+  <div class="tabs" style="margin-bottom:12px">
+    <div class="tab" data-tab="historico" onclick="trocarAba('historico')">🕘 Histórico do cliente</div>
+  </div>
   <div id="resultado" style="display:none">
     <div class="stats" id="stats"></div>
     <div class="tabs">
       <div class="tab active" data-tab="pares" onclick="trocarAba('pares')">Sugestões de baixa</div>
       <div class="tab" data-tab="semParcela" onclick="trocarAba('semParcela')">Extrato sem lançamento</div>
       <div class="tab" data-tab="semMov" onclick="trocarAba('semMov')">Lançamentos sem extrato</div>
-      <div style="margin-left:auto;display:flex;gap:8px">
+      <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-outline" onclick="mostrarResumo()">📋 Resumo do fechamento</button>
         <button class="btn btn-outline" onclick="exportarCSV()">↓ Exportar CSV</button>
         <button class="btn btn-success" id="btnBaixar" onclick="darBaixa()">✓ Dar baixa nos selecionados</button>
       </div>
     </div>
-    <div class="table-wrap" id="tabela"></div>
   </div>
+  <div class="card" id="resumoCard" style="display:none">
+    <h2>Resumo do fechamento</h2>
+    <textarea class="resumo" id="resumoTxt"></textarea>
+    <div class="row" style="margin-top:10px">
+      <button class="btn btn-primary" onclick="copiarResumo()">Copiar</button>
+      <button class="btn btn-outline" onclick="baixarResumo()">↓ Baixar .txt</button>
+      <button class="btn btn-outline" onclick="$('resumoCard').style.display='none'">Fechar</button>
+    </div>
+  </div>
+  <div class="table-wrap" id="tabela" style="display:none"></div>
 </main>
 
 <script src="conciliacao-core.js"></script>
 <script>
 const FN_URL = 'https://qftusjwnlyjokilcjuzb.supabase.co/functions/v1/conta-azul';
 
-let movimentos = [], resultado = null, jaConciliados = new Set(), aba = 'pares';
-const selecionados = new Set();   // ids de movimentos marcados
-const retornos = {};              // fitid -> {status, erro, anexo}
+let movimentos = [], resultado = null, jaConciliados = new Set(), aba = 'pares', periodo = { de: '', ate: '' };
+let clientes = [];
+const selecionados = new Set();   // ids de movimentos marcados (sugestões)
+const selLanc = new Set();        // ids de movimentos marcados para lançar
+const retornos = {};              // fitid -> {status, erro, anexo, baixa_id}
+const retLanc = {};               // fitid -> retorno do lançamento
 let comprovantes = [];            // {id, file, valores, datas, texto}
 let pastaHandle = null, pastaArquivos = [];
 const vinculo = {};               // id do movimento -> id do comprovante
+let categoriasCache = {}, contatosCache = {}, historico = [];
 const ANEXO_TXT = { ja_tinha: 'já tinha anexo', anexado: 'comprovante anexado', manual: 'comprovante identificado — anexar à mão', link: 'link do comprovante na observação', falta: 'sem comprovante', erro: 'erro ao anexar' };
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const brl = v => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const fmtData = s => s ? s.split('-').reverse().join('/') : '';
+const fmtData = s => s ? String(s).slice(0, 10).split('-').reverse().join('/') : '';
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch {} }
 };
+const cliente = () => $('cliente').value || 'principal';
+const nomeCliente = () => clientes.find(c => c.cliente === cliente())?.nome || '';
 
 function msg(id, tipo, texto) { const el = $(id); el.className = `msg show ${tipo}`; el.innerHTML = texto; }
 
 async function api(action, body) {
   const r = await fetch(FN_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-action': action, 'x-robo-key': $('roboKey').value },
+    headers: { 'Content-Type': 'application/json', 'x-action': action, 'x-robo-key': $('roboKey').value, 'x-cliente': cliente() },
     body: JSON.stringify(body || {})
   });
   const data = await r.json().catch(() => ({}));
@@ -188,8 +228,54 @@ async function api(action, body) {
 
 function salvarConfig() {
   store.set('robo_key', $('roboKey').value);
-  store.set('robo_conta', $('contaFin').value);
+  if ($('cliente').value) store.set('robo_cliente', $('cliente').value);
+  if ($('contaFin').value) store.set('robo_conta_' + cliente(), $('contaFin').value);
   store.set('robo_metodo', $('metodo').value);
+}
+
+// ---------- clientes e conexão ----------
+async function iniciar(preferido) {
+  try {
+    clientes = await api('clientes');
+    const sel = $('cliente');
+    sel.innerHTML = clientes.map(c => `<option value="${esc(c.cliente)}">${esc(c.nome)}${c.conectado ? '' : ' (não conectado)'}</option>`).join('')
+      || '<option value="">— nenhum cliente —</option>';
+    const alvo = preferido || store.get('robo_cliente');
+    if (alvo && clientes.some(c => c.cliente === alvo)) sel.value = alvo;
+    salvarConfig();
+    await verificarStatus();
+  } catch (e) {
+    $('statusCA').className = 'pill off'; $('statusCA').textContent = 'erro';
+    msg('msgConexao', 'erro', esc(e.message));
+  }
+}
+
+async function trocarCliente() {
+  salvarConfig();
+  resultado = null; movimentos = [];
+  $('resultado').style.display = 'none'; $('tabela').style.display = 'none'; $('resumoCard').style.display = 'none';
+  categoriasCache = {}; contatosCache = {};
+  $('msgRodar').className = 'msg';
+  await verificarStatus();
+}
+
+async function novoCliente() {
+  const nome = prompt('Nome do cliente (como aparece para você):');
+  if (!nome || !nome.trim()) return;
+  try {
+    const c = await api('cliente-salvar', { nome });
+    await iniciar(c.cliente);
+    await trocarCliente();
+    msg('msgConexao', 'info', `Cliente <b>${esc(c.nome)}</b> cadastrado. Agora clique em <b>Conectar Conta Azul</b> e entre com o usuário do Conta Azul desse cliente.`);
+  } catch (e) { msg('msgConexao', 'erro', esc(e.message)); }
+}
+
+async function renomearCliente() {
+  if (!$('cliente').value) return;
+  const nome = prompt('Novo nome do cliente:', nomeCliente());
+  if (!nome || !nome.trim()) return;
+  try { await api('cliente-salvar', { cliente: cliente(), nome }); await iniciar(cliente()); }
+  catch (e) { msg('msgConexao', 'erro', esc(e.message)); }
 }
 
 async function verificarStatus() {
@@ -199,6 +285,7 @@ async function verificarStatus() {
     $('statusCA').textContent = s.conectado ? 'conectado' : 'desconectado';
     $('btnConectar').textContent = s.conectado ? 'Reconectar' : 'Conectar Conta Azul';
     if (s.conectado) await carregarContas();
+    else $('contaFin').innerHTML = '<option value="">— conecte primeiro —</option>';
   } catch (e) {
     $('statusCA').className = 'pill off'; $('statusCA').textContent = 'erro';
     msg('msgConexao', 'erro', esc(e.message));
@@ -216,10 +303,11 @@ async function carregarContas() {
   const sel = $('contaFin');
   sel.innerHTML = '<option value="">— selecione —</option>' +
     contas.map(c => `<option value="${esc(c.id)}">${esc(c.nome)}${c.banco ? ' · ' + esc(c.banco) : ''}</option>`).join('');
-  const salva = store.get('robo_conta');
+  const salva = store.get('robo_conta_' + cliente()) || (cliente() === 'principal' ? store.get('robo_conta') : null);
   if (salva && contas.some(c => c.id === salva)) sel.value = salva;
 }
 
+// ---------- arquivos ----------
 function lerArquivo(f) {
   return new Promise((ok, erro) => {
     const r = new FileReader();
@@ -233,13 +321,6 @@ function lerArquivo(f) {
     r.onerror = erro;
     r.readAsArrayBuffer(f);
   });
-}
-
-async function paraBase64(file) {
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  let bin = '';
-  for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode(...bytes.subarray(i, i + 8192));
-  return btoa(bin);
 }
 
 // ---------- pasta de comprovantes (tudo local, sem IA) ----------
@@ -354,6 +435,7 @@ function somarDias(d, n) {
   return x.toISOString().slice(0, 10);
 }
 
+// ---------- conciliação ----------
 async function rodar() {
   const f = $('arquivo').files[0];
   const conta = $('contaFin').value;
@@ -372,7 +454,9 @@ async function rodar() {
 
     const janela = Number($('janela').value) || 0;
     const datas = movimentos.map(m => m.data).sort();
-    const de = somarDias(datas[0], -janela), ate = somarDias(datas[datas.length - 1], janela);
+    periodo = { de: datas[0], ate: datas[datas.length - 1] };
+    // busca mais para trás para achar pagamentos com atraso (juros/multa)
+    const de = somarDias(datas[0], -Math.max(janela, 30)), ate = somarDias(datas[datas.length - 1], janela);
 
     msg('msgRodar', 'info', `${movimentos.length} movimentos. Buscando lançamentos em aberto no Conta Azul (${fmtData(de)} a ${fmtData(ate)})…`);
     const [parcelas, conciliados] = await Promise.all([
@@ -383,20 +467,24 @@ async function rodar() {
     const pendentes = movimentos.filter(m => !jaConciliados.has(m.id));
 
     resultado = Conciliacao.conciliar(pendentes, parcelas, { janelaDias: janela });
-    selecionados.clear();
+    selecionados.clear(); selLanc.clear();
     for (const k in retornos) delete retornos[k];
-    resultado.pares.filter(p => p.confianca === 'alta').forEach(p => selecionados.add(p.movimento.id));
+    for (const k in retLanc) delete retLanc[k];
 
     for (const k in vinculo) delete vinculo[k];
     comprovantes = arqs.length ? await lerComprovantes(arqs) : [];
     Object.assign(vinculo, Conciliacao.casarComprovantes(resultado.pares, comprovantes, { janelaDias: 3 }));
+    Conciliacao.reforcarComComprovantes(resultado.pares, vinculo, comprovantes);
+    resultado.pares.filter(p => p.confianca === 'alta').forEach(p => selecionados.add(p.movimento.id));
     const ilegiveis = comprovantes.filter(c => !c.valores.length).length;
+    const comPossivel = resultado.semParcela.filter(m => m.possiveis?.length).length;
 
     msg('msgRodar', 'ok', `Pronto: ${resultado.pares.length} sugestões, ${parcelas.length} lançamentos em aberto analisados` +
       (jaConciliados.size ? `, ${jaConciliados.size} movimentos já conciliados antes foram ignorados` : '') +
+      (comPossivel ? `. ${comPossivel} movimento(s) com valor igual mas <b>nome diferente</b> foram para <i>Extrato sem lançamento</i> para você conferir` : '') +
       (comprovantes.length ? `. Comprovantes: ${Object.keys(vinculo).length} de ${comprovantes.length} ligados` + (ilegiveis ? `, ${ilegiveis} sem valor reconhecível (ex.: imagens sem valor no nome)` : '') : '') + '.');
     $('resultado').style.display = '';
-    render();
+    trocarAba('pares');
   } catch (e) {
     msg('msgRodar', 'erro', esc(e.message));
   } finally {
@@ -407,69 +495,251 @@ async function rodar() {
 function trocarAba(a) {
   aba = a;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === a));
+  if (a === 'historico') return carregarHistorico();
+  if (a === 'semParcela') prepararLancamento();
   render();
 }
 
 function valorHtml(v) { return `<span class="mono ${v >= 0 ? 'pos' : 'neg'}">${brl(v)}</span>`; }
 
 function render() {
+  $('tabela').style.display = '';
+  if (aba === 'historico') return renderHistorico();
   const r = resultado;
+  if (!r) { $('tabela').innerHTML = '<div class="empty">Rode a conciliação primeiro.</div>'; return; }
   const feitos = Object.values(retornos).filter(x => x.status === 'ok').length;
+  const lancados = Object.values(retLanc).filter(x => x.status === 'ok').length;
   $('stats').innerHTML = [
     ['Movimentos', movimentos.length, ''],
     ['Sugestões', r.pares.length, 'color:var(--accent)'],
     ['Confiança alta', r.pares.filter(p => p.confianca === 'alta').length, 'color:var(--success)'],
-    ['Sem lançamento', r.semParcela.length, 'color:var(--warn)'],
+    ['Sem lançamento', r.semParcela.filter(m => retLanc[m.id]?.status !== 'ok').length, 'color:var(--warn)'],
     ['Com comprovante', r.pares.filter(p => vinculo[p.movimento.id]).length, 'color:var(--accent2)'],
-    ['Baixas feitas', feitos, 'color:var(--success)']
+    ['Baixas feitas', feitos + lancados, 'color:var(--success)']
   ].map(([l, v, s]) => `<div class="stat"><div class="stat-label">${l}</div><div class="stat-value" style="${s}">${v}</div></div>`).join('');
 
   $('btnBaixar').style.display = aba === 'pares' ? '' : 'none';
   let html = '';
-  if (aba === 'pares') {
-    if (!r.pares.length) html = '<div class="empty">Nenhuma sugestão de baixa.</div>';
-    else html = `<table><thead><tr>
-      <th><input type="checkbox" onchange="marcarTodos(this.checked)"></th>
-      <th>Data banco</th><th>Histórico do extrato</th><th>Valor</th>
-      <th>Lançamento Conta Azul</th><th>Vencimento</th><th>Confiança</th><th>Comprovante</th><th>Resultado</th></tr></thead><tbody>` +
-      r.pares.map(p => {
-        const ret = retornos[p.movimento.id];
-        const travado = ret && ret.status === 'ok';
-        return `<tr>
-          <td><input type="checkbox" ${selecionados.has(p.movimento.id) ? 'checked' : ''} ${travado ? 'disabled' : ''}
-               onchange="marcar('${esc(p.movimento.id)}', this.checked)"></td>
-          <td class="mono">${fmtData(p.movimento.data)}</td>
-          <td>${esc(p.movimento.historico)}</td>
-          <td>${valorHtml(p.movimento.valor)}</td>
-          <td>${esc(p.parcela.nome || '—')}<div class="muted">${p.parcela.tipo === 'receber' ? 'A receber' : 'A pagar'} · ${esc(p.parcela.descricao)}</div></td>
-          <td class="mono">${fmtData(p.parcela.vencimento)}<div class="muted">${p.dias} dia(s)</div></td>
-          <td><span class="pill ${p.confianca}">${p.confianca}</span></td>
-          <td>${comprovanteHtml(p.movimento.id, travado)}</td>
-          <td>${ret ? `<span class="pill ${ret.status}">${ret.status}</span>` +
-            (ret.anexo ? `<div class="muted">${ANEXO_TXT[ret.anexo] || esc(ret.anexo)}</div>` : '') +
-            (ret.erro ? `<div class="muted">${esc(ret.erro)}</div>` : '') : ''}</td>
-        </tr>`;
-      }).join('') + '</tbody></table>';
-  } else if (aba === 'semParcela') {
-    html = !r.semParcela.length ? '<div class="empty">Todos os movimentos têm sugestão.</div>' :
-      `<table><thead><tr><th>Data</th><th>Histórico</th><th>Valor</th></tr></thead><tbody>` +
-      r.semParcela.map(m => `<tr><td class="mono">${fmtData(m.data)}</td><td>${esc(m.historico)}</td><td>${valorHtml(m.valor)}</td></tr>`).join('') +
-      '</tbody></table>';
-  } else {
-    html = !r.parcelasSemMovimento.length ? '<div class="empty">Nenhum lançamento em aberto sobrando no período.</div>' :
-      `<table><thead><tr><th>Vencimento</th><th>Tipo</th><th>Contato</th><th>Descrição</th><th>Valor</th></tr></thead><tbody>` +
-      r.parcelasSemMovimento.map(p => `<tr><td class="mono">${fmtData(p.vencimento)}</td><td>${p.tipo === 'receber' ? 'A receber' : 'A pagar'}</td>
-        <td>${esc(p.nome)}</td><td>${esc(p.descricao)}</td><td>${valorHtml(p.tipo === 'receber' ? p.valor : -p.valor)}</td></tr>`).join('') +
-      '</tbody></table>';
-  }
+  if (aba === 'pares') html = renderPares(r);
+  else if (aba === 'semParcela') html = renderSemParcela(r);
+  else html = renderSemMov(r);
   $('tabela').innerHTML = html;
 }
 
+function renderPares(r) {
+  if (!r.pares.length) return '<div class="empty">Nenhuma sugestão de baixa.</div>';
+  return `<table><thead><tr>
+    <th><input type="checkbox" onchange="marcarTodos(this.checked)"></th>
+    <th>Data banco</th><th>Histórico do extrato</th><th>Valor</th>
+    <th>Lançamento Conta Azul</th><th>Vencimento</th><th>Confiança</th><th>Comprovante</th><th>Resultado</th></tr></thead><tbody>` +
+    r.pares.map((p, i) => {
+      const ret = retornos[p.movimento.id];
+      const travado = ret && ret.status === 'ok';
+      const aj = p.ajuste ? `<div class="ajuste">${p.ajuste.tipo === 'desconto' ? '− desconto' :
+        `+ <select onchange="tipoAjuste(${i}, this.value)" ${travado ? 'disabled' : ''}>
+            <option value="juros" ${p.ajuste.tipo === 'juros' ? 'selected' : ''}>juros</option>
+            <option value="multa" ${p.ajuste.tipo === 'multa' ? 'selected' : ''}>multa</option></select>`} ${brl(p.ajuste.valor)}
+        <span class="muted">(parcela ${brl(p.parcela.valor)})</span></div>` : '';
+      return `<tr>
+        <td><input type="checkbox" ${selecionados.has(p.movimento.id) ? 'checked' : ''} ${travado ? 'disabled' : ''}
+             onchange="marcar('${esc(p.movimento.id)}', this.checked)"></td>
+        <td class="mono">${fmtData(p.movimento.data)}</td>
+        <td>${esc(p.movimento.historico)}</td>
+        <td>${valorHtml(p.movimento.valor)}${aj}</td>
+        <td>${esc(p.parcela.nome || '—')}<div class="muted">${p.parcela.tipo === 'receber' ? 'A receber' : 'A pagar'} · ${esc(p.parcela.descricao)}</div></td>
+        <td class="mono">${fmtData(p.parcela.vencimento)}<div class="muted">${p.dias} dia(s)</div></td>
+        <td><span class="pill ${p.confianca}">${p.confianca}</span>${p.confianca === 'manual' && !travado ? `<div><button class="link" onclick="desfazerVinculo('${esc(p.movimento.id)}')">voltar</button></div>` : ''}</td>
+        <td>${comprovanteHtml(p.movimento.id, travado)}</td>
+        <td>${retornoHtml(ret, p.movimento.id)}</td>
+      </tr>`;
+    }).join('') + '</tbody></table>';
+}
+
+function retornoHtml(ret, movId) {
+  if (!ret) return '';
+  return `<span class="pill ${ret.status}">${ret.status}</span>` +
+    (ret.anexo ? `<div class="muted">${ANEXO_TXT[ret.anexo] || esc(ret.anexo)}</div>` : '') +
+    (ret.erro ? `<div class="muted">${esc(ret.erro)}</div>` : '') +
+    (ret.aviso ? `<div class="muted">${esc(ret.aviso)}</div>` : '') +
+    (ret.status === 'ok' ? `<div><button class="link danger" onclick="desfazerBaixa('${esc(movId)}')">desfazer</button></div>` : '');
+}
+
+// ---- extrato sem lançamento: vincular à mão ou lançar no Conta Azul ----
+function opcoesVinculo(m) {
+  const tipo = m.valor > 0 ? 'receber' : 'pagar';
+  const cents = Math.round(Math.abs(m.valor) * 100);
+  const poss = (m.possiveis || []).map(x => x.parcela.id);
+  const abertas = resultado.parcelasSemMovimento.filter(p => p.tipo === tipo)
+    .sort((a, b) => Math.abs(Math.round(a.valor * 100) - cents) - Math.abs(Math.round(b.valor * 100) - cents) ||
+      Math.abs(new Date(a.vencimento) - new Date(m.data)) - Math.abs(new Date(b.vencimento) - new Date(m.data)));
+  const ordem = [...abertas.filter(p => poss.includes(p.id)), ...abertas.filter(p => !poss.includes(p.id)).slice(0, 40)];
+  return ordem.map(p => `<option value="${esc(p.id)}">${poss.includes(p.id) ? '⚠ ' : ''}${esc(p.nome || '—')} · ${brl(p.valor)} · venc. ${fmtData(p.vencimento)}${p.descricao ? ' · ' + esc(p.descricao).slice(0, 40) : ''}</option>`).join('');
+}
+
+function renderSemParcela(r) {
+  const lista = r.semParcela;
+  if (!lista.length) return '<div class="empty">Todos os movimentos têm sugestão.</div>';
+  const dir = direcaoSel();
+  const cats = categoriasCache[dir === 'entrada' ? 'RECEITA' : 'DESPESA'];
+  const conts = contatosCache[dir] || [];
+  const k = `${cliente()}_${dir}`;
+  const toolbar = `<div class="toolbar">
+    <div style="width:100%;font-size:13px;color:var(--text2)"><b>Lançar no Conta Azul</b> (tarifas, juros, IOF, rendimentos…): marque os movimentos — só saídas <i>ou</i> só entradas — escolha categoria e ${dir === 'entrada' ? 'cliente' : 'fornecedor'} e clique em lançar. O robô cria o lançamento já baixado nesta conta.</div>
+    <label>Categoria (${dir === 'entrada' ? 'receita' : 'despesa'})
+      <select id="lcCategoria" onchange="store.set('robo_cat_${esc(k)}', this.value)">
+        ${cats ? '<option value="">— selecione —</option>' + cats.map(c => `<option value="${esc(c.id)}" ${store.get('robo_cat_' + k) === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('') : '<option value="">carregando…</option>'}
+      </select></label>
+    <label>${dir === 'entrada' ? 'Cliente' : 'Fornecedor'} no Conta Azul
+      <span style="display:flex;gap:6px"><input id="lcBusca" placeholder="buscar nome (ex.: banco)" onkeydown="if(event.key==='Enter')buscarContatos()">
+      <button class="btn btn-outline" onclick="buscarContatos()">🔍</button></span>
+      <select id="lcContato" onchange="store.set('robo_ct_${esc(k)}', this.value); store.set('robo_ctn_${esc(k)}', this.options[this.selectedIndex].text)">
+        ${contatoOpcoes(conts, k)}
+      </select></label>
+    <button class="btn btn-primary" onclick="lancarSelecionados()">＋ Lançar selecionados</button>
+  </div>`;
+  return toolbar + `<table><thead><tr><th></th><th>Data</th><th>Histórico</th><th>Valor</th><th>Vincular a um lançamento existente</th><th>Resultado</th></tr></thead><tbody>` +
+    lista.map(m => {
+      const ret = retLanc[m.id];
+      const travado = ret?.status === 'ok';
+      const poss = (m.possiveis || []).filter(x => resultado.parcelasSemMovimento.some(p => p.id === x.parcela.id));
+      return `<tr>
+        <td><input type="checkbox" ${selLanc.has(m.id) ? 'checked' : ''} ${travado ? 'disabled' : ''} onchange="marcarLanc('${esc(m.id)}', this.checked)"></td>
+        <td class="mono">${fmtData(m.data)}</td>
+        <td>${esc(m.historico)}${poss.map(x => `<div class="possivel">⚠ possível: ${esc(x.parcela.nome)} · ${brl(x.parcela.valor)} — ${esc(x.motivo)}</div>`).join('')}</td>
+        <td>${valorHtml(m.valor)}</td>
+        <td>${travado ? '' : `<select class="vinc" onchange="vincularLancamento('${esc(m.id)}', this.value)"><option value="">— escolher —</option>${opcoesVinculo(m)}</select>`}</td>
+        <td>${ret ? `<span class="pill ${ret.status}">${ret.status === 'ok' ? 'lançado' : ret.status}</span>` +
+          (ret.erro ? `<div class="muted">${esc(ret.erro)}</div>` : '') + (ret.aviso ? `<div class="muted">${esc(ret.aviso)}</div>` : '') +
+          (ret.status === 'ok' ? `<div><button class="link danger" onclick="desfazerLanc('${esc(m.id)}')">desfazer baixa</button></div>` : '') : ''}</td>
+      </tr>`;
+    }).join('') + '</tbody></table>';
+}
+
+function contatoOpcoes(conts, k) {
+  const salvo = store.get('robo_ct_' + k), salvoNome = store.get('robo_ctn_' + k);
+  const lista = [...conts];
+  if (salvo && !lista.some(c => c.id === salvo)) lista.unshift({ id: salvo, nome: salvoNome || 'último usado' });
+  if (!lista.length) return '<option value="">— busque pelo nome —</option>';
+  return '<option value="">— selecione —</option>' + lista.map(c => `<option value="${esc(c.id)}" ${c.id === salvo ? 'selected' : ''}>${esc(c.nome)}${c.documento ? ' · ' + esc(c.documento) : ''}</option>`).join('');
+}
+
+function direcaoSel() {
+  const marc = resultado?.semParcela.filter(m => selLanc.has(m.id)) || [];
+  const base = marc[0] || resultado?.semParcela.find(m => retLanc[m.id]?.status !== 'ok');
+  return base && base.valor > 0 ? 'entrada' : 'saida';
+}
+
+async function prepararLancamento() {
+  const dir = direcaoSel(), tipo = dir === 'entrada' ? 'RECEITA' : 'DESPESA';
+  if (categoriasCache[tipo]) return;
+  try {
+    categoriasCache[tipo] = await api('categorias', { tipo });
+    if (aba === 'semParcela') render();
+  } catch (e) { categoriasCache[tipo] = []; msg('msgRodar', 'erro', 'Categorias: ' + esc(e.message)); render(); }
+}
+
+async function buscarContatos() {
+  const dir = direcaoSel();
+  try {
+    contatosCache[dir] = await api('pessoas', { perfil: dir === 'entrada' ? 'Cliente' : 'Fornecedor', busca: $('lcBusca').value.trim() });
+    const busca = $('lcBusca').value;
+    render();
+    $('lcBusca').value = busca;
+    if (!contatosCache[dir].length) msg('msgRodar', 'info', 'Nenhum contato encontrado com esse nome. Cadastre-o no Conta Azul (ex.: o próprio banco como fornecedor) e busque de novo.');
+  } catch (e) { msg('msgRodar', 'erro', esc(e.message)); }
+}
+
+function marcarLanc(id, on) {
+  const antes = direcaoSel();
+  on ? selLanc.add(id) : selLanc.delete(id);
+  if (direcaoSel() !== antes) { prepararLancamento(); render(); }
+}
+
+function vincularLancamento(movId, parcelaId) {
+  if (!parcelaId) return;
+  const m = resultado.semParcela.find(x => x.id === movId);
+  const p = resultado.parcelasSemMovimento.find(x => x.id === parcelaId);
+  if (!m || !p) return;
+  const par = Conciliacao.montarPar(m, p);
+  resultado.pares.push(par);
+  resultado.semParcela = resultado.semParcela.filter(x => x.id !== movId);
+  resultado.parcelasSemMovimento = resultado.parcelasSemMovimento.filter(x => x.id !== parcelaId);
+  selLanc.delete(movId); selecionados.add(movId);
+  msg('msgRodar', 'ok', `Vinculado à mão a <b>${esc(p.nome)}</b>${par.ajuste ? ` com ${par.ajuste.tipo} de ${brl(par.ajuste.valor)}` : ''}. Ele está em <i>Sugestões de baixa</i>, já marcado.`);
+  render();
+}
+
+function desfazerVinculo(movId) {
+  const par = resultado.pares.find(p => p.movimento.id === movId);
+  if (!par) return;
+  resultado.pares = resultado.pares.filter(p => p !== par);
+  const { possiveis, ...mov } = par.movimento;
+  resultado.semParcela.push(mov);
+  resultado.parcelasSemMovimento.push(par.parcela);
+  selecionados.delete(movId); delete vinculo[movId];
+  render();
+}
+
+async function lancarSelecionados() {
+  const conta = $('contaFin').value;
+  const lote = resultado.semParcela.filter(m => selLanc.has(m.id) && retLanc[m.id]?.status !== 'ok');
+  if (!lote.length) return alert('Marque os movimentos que quer lançar.');
+  if (lote.some(m => m.valor > 0) && lote.some(m => m.valor < 0)) return alert('Marque só saídas ou só entradas de cada vez (a categoria é diferente).');
+  const cat = $('lcCategoria').value, ct = $('lcContato').value;
+  if (!cat) return alert('Escolha a categoria.');
+  if (!ct) return alert(`Escolha o ${lote[0].valor > 0 ? 'cliente' : 'fornecedor'} (use a busca).`);
+  const total = lote.reduce((s, m) => s + Math.abs(m.valor), 0);
+  const catNome = $('lcCategoria').options[$('lcCategoria').selectedIndex].text;
+  if (!confirm(`Criar ${lote.length} lançamento(s) já baixados no Conta Azul, total ${brl(total)}, categoria "${catNome}"?\n\nIsso altera dados reais.`)) return;
+  try {
+    for (let i = 0; i < lote.length; i += 10) {
+      const fatia = lote.slice(i, i + 10);
+      msg('msgRodar', 'info', `Lançando… ${i + fatia.length}/${lote.length}`);
+      const res = await api('lancar', { lancamentos: fatia.map(m => ({
+        fitid: m.id, data: m.data, valor: m.valor, historico: m.historico, descricao: m.historico,
+        conta_financeira: conta, metodo_pagamento: $('metodo').value, id_categoria: cat, id_contato: ct })) });
+      for (const x of res) { retLanc[x.fitid] = x; if (x.status === 'ok') selLanc.delete(x.fitid); }
+      render();
+    }
+    const vals = lote.map(m => retLanc[m.id]);
+    const erros = vals.filter(x => x?.status === 'erro').length;
+    msg('msgRodar', erros ? 'erro' : 'ok', `${vals.filter(x => x?.status === 'ok').length} lançamento(s) criados e baixados` + (erros ? `, ${erros} com erro (veja a coluna Resultado)` : '') + '.');
+  } catch (e) { msg('msgRodar', 'erro', esc(e.message)); }
+}
+
+// ---- lançamentos sem extrato: boleto em PDF ----
+function renderSemMov(r) {
+  if (!r.parcelasSemMovimento.length) return '<div class="empty">Nenhum lançamento em aberto sobrando no período.</div>';
+  const hoje = new Date().toISOString().slice(0, 10);
+  return `<table><thead><tr><th>Vencimento</th><th>Tipo</th><th>Contato</th><th>Descrição</th><th>Valor</th><th></th></tr></thead><tbody>` +
+    r.parcelasSemMovimento.slice().sort((a, b) => a.vencimento.localeCompare(b.vencimento)).map(p => `<tr>
+      <td class="mono">${fmtData(p.vencimento)}${p.vencimento < hoje ? '<div class="muted" style="color:var(--danger)">vencido</div>' : ''}</td>
+      <td>${p.tipo === 'receber' ? 'A receber' : 'A pagar'}</td>
+      <td>${esc(p.nome)}</td><td>${esc(p.descricao)}</td><td>${valorHtml(p.tipo === 'receber' ? p.valor : -p.valor)}</td>
+      <td>${p.tipo === 'receber' ? `<button class="link" onclick="baixarBoleto('${esc(p.id)}', this)">📄 boleto PDF</button>` : ''}</td></tr>`).join('') +
+    '</tbody></table>';
+}
+
+async function baixarBoleto(parcelaId, btn) {
+  btn.disabled = true; const txt = btn.textContent; btn.textContent = 'buscando…';
+  try {
+    const r = await api('boleto-pdf', { parcela_id: parcelaId });
+    const bin = atob(r.base64), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+    a.download = r.nome; a.click();
+    btn.textContent = '✓ baixado';
+  } catch (e) { btn.textContent = txt; msg('msgRodar', 'erro', esc(e.message)); }
+  finally { btn.disabled = false; }
+}
+
+// ---- comprovantes ----
 function comprovanteHtml(movId, travado) {
   const c = comprovantes.find(x => x.id === vinculo[movId]);
   if (c) return `📎 ${esc(c.file.name)}${travado ? '' : `<span class="x" title="Remover" onclick="desvincular('${esc(movId)}')">✕</span>`}`;
   if (travado) return '';
-  return `<label class="anexo-btn">＋ anexar<input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onchange="vincularManual('${esc(movId)}', this.files[0])"></label>`;
+  return `<label class="anexo-btn">＋ indicar<input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onchange="vincularManual('${esc(movId)}', this.files[0])"></label>`;
 }
 function vincularManual(movId, file) {
   if (!file) return;
@@ -488,44 +758,45 @@ function marcarTodos(on) {
   });
   render();
 }
+function tipoAjuste(i, tipo) { if (resultado.pares[i]?.ajuste) resultado.pares[i].ajuste.tipo = tipo; }
 
+// ---- baixa ----
 async function darBaixa() {
   const conta = $('contaFin').value;
   const lote = resultado.pares.filter(p => selecionados.has(p.movimento.id) && retornos[p.movimento.id]?.status !== 'ok');
   if (!lote.length) return alert('Nenhuma sugestão selecionada.');
   const total = lote.reduce((s, p) => s + Math.abs(p.movimento.valor), 0);
-  if (!confirm(`Dar baixa em ${lote.length} lançamento(s) no Conta Azul, total ${brl(total)}?\n\nIsso altera dados reais.`)) return;
+  const comAj = lote.filter(p => p.ajuste).length;
+  if (!confirm(`Dar baixa em ${lote.length} lançamento(s) no Conta Azul, total ${brl(total)}${comAj ? ` (${comAj} com juros/multa/desconto)` : ''}?\n\nIsso altera dados reais.`)) return;
 
   $('btnBaixar').disabled = true;
   try {
     // lotes de 20 para não estourar o tempo da Edge Function
     for (let i = 0; i < lote.length; i += 20) {
       const fatia = lote.slice(i, i + 20);
-      msg('msgRodar', 'info', `Enviando comprovantes e dando baixa… ${i + fatia.length}/${lote.length}`);
-      const parte = [];
-      for (const p of fatia) {
+      msg('msgRodar', 'info', `Dando baixa… ${i + fatia.length}/${lote.length}`);
+      const parte = fatia.map(p => {
         const c = comprovantes.find(x => x.id === vinculo[p.movimento.id]);
-        // sem envio do arquivo: o comprovante só é identificado (anexar à mão no Conta Azul)
-        if (c && !c.enviado) c.enviado = { nome: c.file.name };
-        parte.push({
+        return {
           fitid: p.movimento.id, parcela_id: p.parcela.id, tipo: p.parcela.tipo,
-          data: p.movimento.data, valor: Math.abs(p.movimento.valor),
+          data: p.movimento.data, valor: Math.abs(p.movimento.valor), valor_parcela: p.parcela.valor,
+          ajuste: p.ajuste || null,
           conta_financeira: conta, metodo_pagamento: $('metodo').value, historico: p.movimento.historico,
-          comprovante: c ? c.enviado : undefined
-        });
-      }
+          comprovante: c ? { nome: c.file.name } : undefined
+        };
+      });
       for (const res of await api('baixar', { baixas: parte })) {
         retornos[res.fitid] = res;
         if (res.status === 'ok') selecionados.delete(res.fitid);
       }
       render();
     }
-    const vals = Object.values(retornos);
+    const vals = lote.map(p => retornos[p.movimento.id]).filter(Boolean);
     const erros = vals.filter(x => x.status === 'erro').length;
-    const faltam = vals.filter(x => x.anexo === 'falta').length;
+    const manuais = vals.filter(x => x.anexo === 'manual').length;
     msg('msgRodar', erros ? 'erro' : 'ok', `${vals.filter(x => x.status === 'ok').length} baixa(s) registradas` +
       (erros ? `, ${erros} com erro (veja a coluna Resultado)` : '') +
-      (faltam ? `. ${faltam} lançamento(s) continuam sem comprovante.` : '.'));
+      (manuais ? `. ${manuais} com comprovante identificado — anexe à mão no Conta Azul.` : '.'));
   } catch (e) {
     msg('msgRodar', 'erro', esc(e.message));
   } finally {
@@ -533,17 +804,86 @@ async function darBaixa() {
   }
 }
 
+// ---- desfazer ----
+async function desfazer(fitid, onde) {
+  if (!confirm('Desfazer esta baixa no Conta Azul? O lançamento volta a ficar em aberto.')) return null;
+  try {
+    const r = await api('desfazer', { fitid });
+    onde[fitid] = { status: 'desfeito', aviso: r.aviso };
+    jaConciliados.delete(fitid);
+    msg('msgRodar', 'ok', esc(r.aviso));
+    return r;
+  } catch (e) { msg('msgRodar', 'erro', esc(e.message)); return null; }
+}
+async function desfazerBaixa(movId) { if (await desfazer(movId, retornos)) { selecionados.delete(movId); render(); } }
+async function desfazerLanc(movId) { if (await desfazer(movId, retLanc)) render(); }
+
+// ---- histórico ----
+async function carregarHistorico() {
+  $('stats').innerHTML = '';
+  $('tabela').style.display = '';
+  $('tabela').innerHTML = '<div class="empty">Carregando histórico…</div>';
+  try { historico = await api('historico', { limite: 200 }); renderHistorico(); }
+  catch (e) { $('tabela').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+function renderHistorico() {
+  $('btnBaixar').style.display = 'none';
+  if (!historico.length) { $('tabela').innerHTML = `<div class="empty">Nenhuma baixa registrada para ${esc(nomeCliente() || 'este cliente')}.</div>`; return; }
+  $('tabela').innerHTML = `<table><thead><tr><th>Quando</th><th>O quê</th><th>Data banco</th><th>Histórico</th><th>Valor</th><th>Situação</th><th></th></tr></thead><tbody>` +
+    historico.map(h => `<tr>
+      <td class="mono">${fmtData(h.created_at)}<div class="muted">${new Date(h.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div></td>
+      <td>${h.registro === 'lancamento' ? 'Lançamento + baixa' : 'Baixa'}${h.ajuste ? `<div class="muted">${esc(h.ajuste.tipo)} ${brl(h.ajuste.valor)}</div>` : ''}</td>
+      <td class="mono">${fmtData(h.data)}</td><td>${esc(h.historico)}</td>
+      <td>${valorHtml(h.tipo === 'receber' ? h.valor : -h.valor)}</td>
+      <td><span class="pill ${h.status}">${h.status}</span>${h.erro ? `<div class="muted">${esc(h.erro).slice(0, 200)}</div>` : ''}${h.desfeito_em ? `<div class="muted">em ${fmtData(h.desfeito_em)}</div>` : ''}</td>
+      <td>${h.status === 'ok' ? `<button class="link danger" onclick="desfazerHistorico('${esc(h.fitid)}')">desfazer</button>` : ''}</td>
+    </tr>`).join('') + '</tbody></table>';
+}
+async function desfazerHistorico(fitid) {
+  const tmp = {};
+  if (await desfazer(fitid, tmp)) { if (retornos[fitid]) retornos[fitid] = tmp[fitid]; if (retLanc[fitid]) retLanc[fitid] = tmp[fitid]; carregarHistorico(); }
+}
+
+// ---- resumo ----
+function textoResumo() {
+  const contaSel = $('contaFin');
+  const lancados = resultado.semParcela.filter(m => retLanc[m.id]?.status === 'ok').map(m => ({ movimento: m }));
+  return Conciliacao.resumoFechamento({
+    cliente: nomeCliente(), conta: contaSel.value ? contaSel.options[contaSel.selectedIndex].text : '',
+    de: periodo.de, ate: periodo.ate, movimentos, resultado: {
+      ...resultado, semParcela: resultado.semParcela
+    }, retornos, lancados
+  });
+}
+function mostrarResumo() {
+  if (!resultado) return;
+  $('resumoTxt').value = textoResumo();
+  $('resumoCard').style.display = '';
+  $('resumoCard').scrollIntoView({ behavior: 'smooth' });
+}
+async function copiarResumo() {
+  try { await navigator.clipboard.writeText($('resumoTxt').value); msg('msgRodar', 'ok', 'Resumo copiado.'); }
+  catch { $('resumoTxt').select(); document.execCommand('copy'); }
+}
+function baixarResumo() {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([$('resumoTxt').value], { type: 'text/plain;charset=utf-8' }));
+  a.download = `resumo_conciliacao_${(nomeCliente() || 'cliente').replace(/[^\w]+/g, '_')}_${periodo.ate || ''}.txt`;
+  a.click();
+}
+
 function exportarCSV() {
-  const linhas = [['situacao', 'data', 'historico', 'valor', 'lancamento', 'tipo', 'vencimento', 'confianca', 'resultado', 'comprovante', 'anexo']];
+  const linhas = [['situacao', 'data', 'historico', 'valor', 'lancamento', 'tipo', 'vencimento', 'confianca', 'ajuste', 'resultado', 'comprovante']];
   resultado.pares.forEach(p => linhas.push(['sugestao', p.movimento.data, p.movimento.historico, p.movimento.valor,
-    p.parcela.nome, p.parcela.tipo, p.parcela.vencimento, p.confianca, retornos[p.movimento.id]?.status || '',
-    comprovantes.find(x => x.id === vinculo[p.movimento.id])?.file.name || '', ANEXO_TXT[retornos[p.movimento.id]?.anexo] || '']));
-  resultado.semParcela.forEach(m => linhas.push(['extrato_sem_lancamento', m.data, m.historico, m.valor, '', '', '', '', '']));
-  resultado.parcelasSemMovimento.forEach(p => linhas.push(['lancamento_sem_extrato', '', p.descricao, p.valor, p.nome, p.tipo, p.vencimento, '', '']));
+    p.parcela.nome, p.parcela.tipo, p.parcela.vencimento, p.confianca, p.ajuste ? `${p.ajuste.tipo} ${p.ajuste.valor}` : '',
+    retornos[p.movimento.id]?.status || '', comprovantes.find(x => x.id === vinculo[p.movimento.id])?.file.name || '']));
+  resultado.semParcela.forEach(m => linhas.push([retLanc[m.id]?.status === 'ok' ? 'lancado_do_extrato' : 'extrato_sem_lancamento',
+    m.data, m.historico, m.valor, (m.possiveis || []).map(x => 'possível: ' + x.parcela.nome).join(' | '), '', '', '', '', retLanc[m.id]?.status || '', '']));
+  resultado.parcelasSemMovimento.forEach(p => linhas.push(['lancamento_sem_extrato', '', p.descricao, p.valor, p.nome, p.tipo, p.vencimento, '', '', '', '']));
   const csv = linhas.map(l => l.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(';')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
-  a.download = `conciliacao_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `conciliacao_${(nomeCliente() || 'cliente').replace(/[^\w]+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
 }
 
@@ -553,11 +893,13 @@ if (store.get('robo_metodo')) $('metodo').value = store.get('robo_metodo');
 $('contaFin').addEventListener('change', salvarConfig);
 $('metodo').addEventListener('change', salvarConfig);
 restaurarPasta();
-if (new URLSearchParams(location.search).has('conectado')) {
+const qs = new URLSearchParams(location.search);
+if (qs.has('conectado')) {
   msg('msgConexao', 'ok', 'Conta Azul conectado com sucesso.');
+  if (qs.get('cliente')) store.set('robo_cliente', qs.get('cliente'));
   history.replaceState(null, '', location.pathname);
 }
-if ($('roboKey').value) verificarStatus();
+if ($('roboKey').value) iniciar();
 </script>
 </body>
 </html>

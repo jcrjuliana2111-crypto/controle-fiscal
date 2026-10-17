@@ -151,6 +151,85 @@ test('nome do arquivo + texto do PDF juntos', () => {
   assert.deepStrictEqual(C.casarComprovantes(pares, [{ id: 'f', ...forn }, { id: 'x', ...pix }]), { b1: 'f', p1: 'x' });
 });
 
+test('nomeNoExtrato pega o favorecido de PIX/TED e ignora boleto/tarifa', () => {
+  assert.strictEqual(C.nomeNoExtrato('DEBITO TRANSFERENCIA PIX ( DOC.: DEB PIX / ROGERIO LIMA DOS SANTOS )'), 'rogerio lima santos');
+  assert.strictEqual(C.nomeNoExtrato('TED BETA SERVICOS'), 'beta servicos');
+  assert.strictEqual(C.nomeNoExtrato('LIQUIDACAO DE TITULO - IB ( DOC.: 1368293600 / VA EXTRA RIO'), '');
+  assert.strictEqual(C.nomeNoExtrato('TARIFA PIX'), '');
+  assert.strictEqual(C.nomeNoExtrato('ENEL PAGTO BOLETO'), '');
+});
+
+test('PIX com nome diferente não vira sugestão: fica como possível (caso real 16/10)', () => {
+  const movs = [
+    { id: 'm1', data: '2026-10-16', valor: -323, historico: 'DEBITO TRANSFERENCIA PIX ( DOC.: DEB PIX / ROGERIO LIMA DOS SANTOS )' },
+    { id: 'm2', data: '2026-10-16', valor: -200, historico: 'DEBITO TRANSFERENCIA PIX ( DOC.: DEB PIX / THAINA GOULART RIBEIRO )' },
+    { id: 'm3', data: '2026-10-16', valor: -150, historico: 'DEBITO TRANSFERENCIA PIX ( DOC.: DEB PIX / MARIA CLARA SOUZA )' }
+  ];
+  const parcelas = [
+    { id: 'p1', tipo: 'pagar', vencimento: '2026-10-16', valor: 323, nome: 'Carlos Roberto de Oliveira Santos', descricao: 'PAGAMENTO PLANTÃO EXTRA' },
+    { id: 'p2', tipo: 'pagar', vencimento: '2026-10-19', valor: 200, nome: 'ZELO HEALTH CARE', descricao: 'MATERIAL MEDICO' },
+    { id: 'p3', tipo: 'pagar', vencimento: '2026-10-16', valor: 150, nome: 'Maria Clara Souza Lima', descricao: 'PLANTÃO' }
+  ];
+  const r = C.conciliar(movs, parcelas, { janelaDias: 5 });
+  assert.deepStrictEqual(r.pares.map(p => [p.movimento.id, p.parcela.id, p.confianca]), [['m3', 'p3', 'alta']]);
+  const sem = Object.fromEntries(r.semParcela.map(m => [m.id, (m.possiveis || []).map(x => x.parcela.id)]));
+  assert.deepStrictEqual(sem, { m1: ['p1'], m2: ['p2'] });
+});
+
+test('boleto sem nome no extrato, único candidato: sugestão média (conferir)', () => {
+  const r = C.conciliar(
+    [{ id: 'm', data: '2026-10-16', valor: -485.6, historico: 'LIQUIDACAO DE TITULO - IB ( DOC.: 1368293600 / 0120682000010' }],
+    [{ id: 'p', tipo: 'pagar', vencimento: '2026-10-16', valor: 485.6, nome: 'Fornecedor X', descricao: 'NF 10' }],
+    { janelaDias: 5 });
+  assert.strictEqual(r.pares[0].confianca, 'media');
+});
+
+test('juros/multa e desconto: mesmo contato, valor diferente', () => {
+  const movs = [
+    { id: 'j', data: '2026-10-12', valor: -1030, historico: 'TED ALFA LOCACOES' },   // pagou com atraso
+    { id: 'd', data: '2026-10-01', valor: 970, historico: 'PIX RECEBIDO BETA COMERCIO' }, // cliente pagou com desconto
+    { id: 'x', data: '2026-10-01', valor: -700, historico: 'TED GAMA LTDA COMERCIO' }  // diferença grande demais
+  ];
+  const parcelas = [
+    { id: 'pj', tipo: 'pagar', vencimento: '2026-10-05', valor: 1000, nome: 'Alfa Locações' },
+    { id: 'pd', tipo: 'receber', vencimento: '2026-10-05', valor: 1000, nome: 'Beta Comércio' },
+    { id: 'px', tipo: 'pagar', vencimento: '2026-10-01', valor: 1000, nome: 'Gama Comercio' }
+  ];
+  const r = C.conciliar(movs, parcelas, { janelaDias: 5 });
+  const m = Object.fromEntries(r.pares.map(p => [p.movimento.id, [p.parcela.id, p.confianca, p.ajuste]]));
+  assert.deepStrictEqual(m.j, ['pj', 'media', { tipo: 'juros', valor: 30 }]);
+  assert.deepStrictEqual(m.d, ['pd', 'media', { tipo: 'desconto', valor: 30 }]);
+  assert.strictEqual(m.x, undefined);
+});
+
+test('montarPar (vínculo manual) calcula dias e ajuste', () => {
+  const p = C.montarPar({ id: 'm', data: '2026-10-10', valor: -110 }, { id: 'p', vencimento: '2026-10-05', valor: 100 });
+  assert.strictEqual(p.confianca, 'manual');
+  assert.strictEqual(p.dias, 5);
+  assert.deepStrictEqual(p.ajuste, { tipo: 'juros', valor: 10 });
+});
+
+test('comprovante com o nome do contato reforça sugestão média', () => {
+  const pares = [{ movimento: { id: 'm', valor: -485.6 }, parcela: { nome: 'Fornecedor Xis' }, confianca: 'media', dias: 0, ajuste: null }];
+  const sub = C.reforcarComComprovantes(pares, { m: 'c' }, [{ id: 'c', texto: 'FORNECEDOR XIS R$ 485,60' }]);
+  assert.deepStrictEqual(sub, ['m']);
+  assert.strictEqual(pares[0].confianca, 'alta');
+});
+
+test('resumoFechamento lista baixas, pendências e vencidos', () => {
+  const movs = [{ id: 'a', data: '2026-10-16', valor: -100, historico: 'X' }, { id: 'b', data: '2026-10-16', valor: -12.5, historico: 'TARIFA' }];
+  const resultado = {
+    pares: [{ movimento: movs[0], parcela: { valor: 100 }, ajuste: null }],
+    semParcela: [movs[1]],
+    parcelasSemMovimento: [{ vencimento: '2026-10-01', valor: 50, tipo: 'receber', nome: 'Cliente Y' }]
+  };
+  const t = C.resumoFechamento({ cliente: 'Clínica', de: '2026-10-16', ate: '2026-10-16', movimentos: movs, resultado,
+    retornos: { a: { status: 'ok' } }, hoje: '2026-10-17' });
+  assert.match(t, /Baixados no Conta Azul: 1 \(R\$ 100,00\)/);
+  assert.match(t, /sem lançamento: 1 \(R\$ 12,50\)/);
+  assert.match(t, /Vencidos .*: 1 \(R\$ 50,00\)/);
+});
+
 test('cópia do motor na skill está igual à do robô', () => {
   const fs = require('fs');
   const path = require('path');
