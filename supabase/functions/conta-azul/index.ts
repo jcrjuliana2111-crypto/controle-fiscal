@@ -7,8 +7,8 @@
 //   ROBO_KEY                – senha que a página envia no header x-robo-key
 //   CONTA_AZUL_ANEXO_PATH   – (opcional) rota da API para enviar anexo, ex.:
 //                             /v1/financeiro/eventos-financeiros/parcelas/{parcela_id}/anexos
-//                             Aceita {parcela_id} e {baixa_id}. Sem ela, o link do
-//                             comprovante vai na observação da baixa.
+//                             Aceita {parcela_id} e {baixa_id}. Sem ela, o comprovante
+//                             fica só identificado na tela (anexar à mão no Conta Azul).
 //   CONTA_AZUL_ANEXO_CAMPO  – (opcional) nome do campo do arquivo no multipart (padrão "file")
 // SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY já existem em toda Edge Function.
 //
@@ -157,11 +157,14 @@ async function baixar(b: Baixa) {
 
   try {
     const parcela = await ca(`/v1/financeiro/eventos-financeiros/parcelas/${b.parcela_id}`);
-    // anexo: anexado | link (na observação) | ja_tinha (sem comprovante novo, mas a parcela já tem anexo) | falta | erro
-    // O comprovante é enviado mesmo que a parcela já tenha outros anexos (soma, não substitui).
-    let anexo = b.comprovante ? (ANEXO_PATH ? 'anexado' : 'link') : temAnexo(parcela) ? 'ja_tinha' : 'falta';
-    let observacao = `Conciliação automática: ${b.historico ?? ''}`.slice(0, 120);
-    if (anexo === 'link') observacao += ` | Comprovante: ${b.comprovante!.url}`;
+    // anexo: anexado (só com CONTA_AZUL_ANEXO_PATH) | manual (comprovante identificado, anexar à mão)
+    //        | ja_tinha (sem comprovante na linha, parcela já tem anexo) | falta | erro
+    // Nenhum link de comprovante vai para a observação.
+    let anexo = b.comprovante ? (ANEXO_PATH && b.comprovante.path ? 'anexado' : 'manual') : temAnexo(parcela) ? 'ja_tinha' : 'falta';
+    // Observação: mantém o que já estiver escrito e acrescenta a marca da baixa automática.
+    const obsAnterior = String(parcela?.nota ?? parcela?.observacao ?? '').trim(); // "nota" = observação da parcela na API v2
+    const marca = `Baixa automática (conciliação bancária): ${b.historico ?? ''}`.trim().slice(0, 150);
+    const observacao = obsAnterior ? `${obsAnterior}\n${marca}` : marca;
     const body: Record<string, unknown> = {
       data_pagamento: b.data,
       composicao_valor: { valor_bruto: b.valor },

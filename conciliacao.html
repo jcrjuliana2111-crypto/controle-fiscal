@@ -132,7 +132,7 @@
       <button class="btn btn-primary" id="btnRodar" onclick="rodar()">▶ Rodar conciliação</button>
     </div>
     <p class="muted" style="margin-top:10px">CSV: precisa das colunas <b>Data</b> e <b>Valor</b> (ou <b>Crédito</b>/<b>Débito</b>) e, de preferência, <b>Histórico</b>. Entradas casam com contas a receber; saídas com contas a pagar.<br>
-    Comprovantes: o robô lê o texto dos PDFs e o nome dos arquivos (sem IA). PIX: <code>FAVORECIDO / VALOR R$ 490,00 / descrição igual ao Conta Azul</code>. Fornecedor: <code>FORNECEDOR / VALOR R$ 964,62 / V 051026</code> (vencimento ddmmaa). Imagens só são reconhecidas pelo nome do arquivo. Na baixa, o comprovante é sempre enviado, mesmo que o lançamento já tenha outros anexos.</p>
+    Comprovantes: o robô lê o texto dos PDFs e o nome dos arquivos (sem IA). PIX: <code>FAVORECIDO / VALOR R$ 490,00 / descrição igual ao Conta Azul</code>. Fornecedor: <code>FORNECEDOR / VALOR R$ 964,62 / V 051026</code> (vencimento ddmmaa). Imagens só são reconhecidas pelo nome do arquivo. Na baixa, o robô só identifica o comprovante de cada lançamento (anexe à mão no Conta Azul); a observação recebe a marca de baixa automática, mantendo o que já estava escrito.</p>
     <div id="msgRodar" class="msg"></div>
   </div>
 
@@ -162,7 +162,7 @@ const retornos = {};              // fitid -> {status, erro, anexo}
 let comprovantes = [];            // {id, file, valores, datas, texto}
 let pastaHandle = null, pastaArquivos = [];
 const vinculo = {};               // id do movimento -> id do comprovante
-const ANEXO_TXT = { ja_tinha: 'já tinha anexo', anexado: 'comprovante anexado', link: 'link do comprovante na observação', falta: 'sem comprovante', erro: 'erro ao anexar' };
+const ANEXO_TXT = { ja_tinha: 'já tinha anexo', anexado: 'comprovante anexado', manual: 'comprovante identificado — anexar à mão', link: 'link do comprovante na observação', falta: 'sem comprovante', erro: 'erro ao anexar' };
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -505,9 +505,8 @@ async function darBaixa() {
       const parte = [];
       for (const p of fatia) {
         const c = comprovantes.find(x => x.id === vinculo[p.movimento.id]);
-        if (c && !c.enviado) {
-          c.enviado = await api('comprovante-upload', { nome: c.file.name, tipo: c.file.type, base64: await paraBase64(c.file) });
-        }
+        // sem envio do arquivo: o comprovante só é identificado (anexar à mão no Conta Azul)
+        if (c && !c.enviado) c.enviado = { nome: c.file.name };
         parte.push({
           fitid: p.movimento.id, parcela_id: p.parcela.id, tipo: p.parcela.tipo,
           data: p.movimento.data, valor: Math.abs(p.movimento.valor),

@@ -111,20 +111,23 @@ Coluna **Comprovante**: mostra o arquivo ligado; dá para remover (✕) ou anexa
 
 1. consulta a parcela no Conta Azul;
 2. registra a baixa (data do banco, valor, conta financeira, forma de pagamento);
-3. comprovante: **sempre envia o comprovante ligado, mesmo que a parcela já tenha outros anexos** (pedido da usuária: soma, não substitui).
+3. observação: "Baixa automática (conciliação bancária): <histórico>", **mantendo a observação que o lançamento já tinha** (campo `nota` da parcela);
+4. comprovante: **sem link e sem envio de arquivo** (pedido da usuária) — o robô só identifica qual comprovante é de cada lançamento, para anexar à mão.
 
 A coluna *Resultado* mostra `ok`/`erro` e a situação do comprovante:
 
 | Texto | Significado |
 |---|---|
 | já tinha anexo | nenhum comprovante ligado na linha, mas a parcela já tinha anexo |
-| link do comprovante na observação | padrão hoje: arquivo no Supabase, link na observação da baixa |
+| comprovante identificado — anexar à mão | padrão hoje: o arquivo certo foi encontrado; anexar no Conta Azul |
 | comprovante anexado | enviado direto ao Conta Azul (só se `CONTA_AZUL_ANEXO_PATH` estiver configurado) |
 | sem comprovante | nenhum comprovante ligado e a parcela não tem anexo |
 
-Por que link e não anexo nativo: a API v2 mostra anexos, mas não há rota
-pública documentada para enviá-los. Se o Conta Azul confirmar a rota, basta
-configurar o secret `CONTA_AZUL_ANEXO_PATH` (e `CONTA_AZUL_ANEXO_CAMPO`).
+Por que não há anexo automático: a API v2 mostra anexos, mas não há rota
+pública documentada para enviá-los (conferido em out/2026; a "captura de
+documentos" cria lançamento novo, não serve). A usuária não quer link na
+observação. Se o Conta Azul confirmar a rota: voltar o `comprovante-upload` na
+tela e configurar `CONTA_AZUL_ANEXO_PATH` (e `CONTA_AZUL_ANEXO_CAMPO`).
 
 ## Etapa 5 — Pendências
 

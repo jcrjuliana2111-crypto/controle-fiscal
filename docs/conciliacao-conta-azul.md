@@ -59,27 +59,27 @@ passa por IA — a leitura é feita no seu navegador:
    descrição batendo. Um comprovante sem data e sem nome/descrição reconhecível
    só é ligado se for a única opção com aquele valor. Dá para anexar ou remover
    à mão na coluna *Comprovante*.
-4. Na baixa, o comprovante ligado é **sempre enviado, mesmo que o lançamento
-   já tenha outros anexos** (soma, não substitui). A coluna *Resultado* mostra:
-   *comprovante anexado*, *link do comprovante na observação*, *já tinha anexo*
-   (sem comprovante novo, mas o lançamento já tinha anexo) ou *sem comprovante*.
+4. Na baixa, o robô **não envia o arquivo nem link**: o comprovante só é
+   identificado, para você anexar à mão no Conta Azul. A observação da baixa
+   recebe "Baixa automática (conciliação bancária): <histórico>", **mantendo o
+   que já estava escrito** na observação do lançamento. A coluna *Resultado*
+   mostra: *comprovante identificado — anexar à mão*, *já tinha anexo* ou
+   *sem comprovante*.
 
 Subpastas também são lidas. No **Chrome/Edge** o navegador lembra a pasta: nas
 próximas vezes basta clicar em *Rodar conciliação* (ele pode pedir para
 confirmar o acesso) e os arquivos novos são lidos na hora. No Firefox/Safari é
 preciso escolher a pasta a cada vez.
 
-Só os comprovantes das baixas feitas são enviados — para o bucket
-`comprovantes` do Supabase (link com caminho aleatório).
+Os comprovantes **não saem do seu computador**: o robô só lê e identifica.
 
 **Sobre o anexo nativo do Conta Azul:** a API v2 mostra os anexos de parcelas
-e baixas, mas não achamos na documentação pública uma rota para *enviar*
-anexo. Por isso, por padrão, o robô grava o link do comprovante na observação
-da baixa. Se o Conta Azul liberar (ou já tiver) essa rota, basta configurar o
-secret `CONTA_AZUL_ANEXO_PATH` (ex.:
+e baixas, mas não há na documentação pública uma rota para *enviar* anexo
+(conferido em out/2026). Por isso o comprovante é anexado à mão. Se o Conta
+Azul liberar essa rota: voltar a enviar o arquivo na tela (`comprovante-upload`
+em `conciliacao.html`) e configurar o secret `CONTA_AZUL_ANEXO_PATH` (ex.:
 `/v1/financeiro/eventos-financeiros/parcelas/{parcela_id}/anexos`) e, se
-precisar, `CONTA_AZUL_ANEXO_CAMPO` (nome do campo do arquivo, padrão `file`).
-Aí o arquivo é enviado direto ao Conta Azul.
+precisar, `CONTA_AZUL_ANEXO_CAMPO` (padrão `file`).
 
 ## Configuração (uma vez)
 
