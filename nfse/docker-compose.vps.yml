@@ -1,0 +1,22 @@
+# Complemento para servidor (VPS): coloca o Caddy na frente com HTTPS automático.
+# Uso: docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build
+# O instalar-vps.sh já faz tudo isso.
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      DOMINIO: ${DOMINIO}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_dados:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+volumes:
+  caddy_dados:
+  caddy_config:

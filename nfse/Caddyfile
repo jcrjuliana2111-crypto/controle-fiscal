@@ -1,0 +1,5 @@
+# HTTPS automático (Let's Encrypt) na frente do EmitAI. Usado por docker-compose.vps.yml.
+{$DOMINIO} {
+	encode gzip
+	reverse_proxy app:3333
+}

@@ -84,6 +84,29 @@ Sem SMTP configurado, os e-mails (confirmação, convite, senha) aparecem no ter
 
 ## Colocar no ar (produção)
 
+### Jeito rápido: VPS Ubuntu com um comando
+
+Num servidor Ubuntu 22.04 ou 24.04 novo (ex.: Hostinger VPS KVM 2), abra o terminal como root e cole:
+
+```
+curl -fsSL https://raw.githubusercontent.com/jcrjuliana2111-crypto/controle-fiscal/claude/peaceful-knuth-u6sfq3/nfse/instalar-vps.sh | bash
+```
+
+O `instalar-vps.sh`:
+- instala o Docker;
+- baixa o código em `/opt/emitai`;
+- cria o `.env` com senhas e chave mestra aleatórias;
+- sobe a aplicação, o PostgreSQL e o Caddy (HTTPS automático, `docker-compose.vps.yml`).
+
+Sem domínio, ele usa o endereço provisório `IP-DO-SERVIDOR.sslip.io`. Para trocar pelo seu domínio:
+1. Aponte o domínio para o IP do servidor.
+2. Edite `DOMINIO` e `APP_URL` em `/opt/emitai/nfse/.env`.
+3. Rode `emitai reiniciar`.
+
+Atalhos instalados no servidor: `emitai links | logs | reiniciar | parar | atualizar | backup`.
+
+### Jeito manual
+
 1. Um servidor (VPS) com Docker, ou qualquer hospedagem Node.js + PostgreSQL gerenciado.
 2. Domínio com HTTPS. Exemplo com Caddy na frente da aplicação:
    ```
